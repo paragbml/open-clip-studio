@@ -511,46 +511,31 @@ export default function StudioEditor({
           <button
             onClick={onBack}
             className="btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+            style={{ padding: '7px 13px', fontSize: '0.8rem' }}
           >
-            <ArrowLeft size={16} />
-            <span>Back to Clips</span>
+            <ArrowLeft size={14} />
+            <span>Clips</span>
           </button>
           <div>
             <h2 style={{
               fontFamily: 'var(--font-heading)',
-              fontSize: '1.38rem',
-              fontWeight: 800,
+              fontSize: '1.25rem',
+              fontWeight: 600,
               color: '#ffffff',
               letterSpacing: '-0.3px',
               marginBottom: '2px'
             }}>
               {clip.title}
             </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                color: clip.viralityScore >= 90 ? '#34d399' : clip.viralityScore >= 80 ? '#38bdf8' : '#a78bfa',
-                fontWeight: 700
-              }}>
-                <Flame size={14} />
-                <span>Score: {clip.viralityScore}/100</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <span className="badge-minimal" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
+                Score: {clip.viralityScore}/100
               </span>
               <span>•</span>
               <span>Trim: {formatTime(trimStart)} - {formatTime(trimEnd)} ({(trimEnd - trimStart).toFixed(1)}s)</span>
               {trackingData.hasTwoSpeakers && (
-                <span style={{
-                  background: 'rgba(99, 102, 241, 0.15)',
-                  color: '#a5b4fc',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 700,
-                  fontSize: '0.74rem',
-                  border: '1px solid rgba(99, 102, 241, 0.3)'
-                }}>
-                  👥 2 Speakers Detected
+                <span className="badge-tag">
+                  Dual Speaker Detected
                 </span>
               )}
             </div>
@@ -560,14 +545,9 @@ export default function StudioEditor({
         <button
           onClick={handleExportClick}
           className="btn-primary"
-          style={{
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            boxShadow: '0 4px 18px rgba(16, 185, 129, 0.45)',
-            padding: '10px 20px',
-            fontSize: '0.88rem'
-          }}
+          style={{ padding: '9px 18px', fontSize: '0.82rem' }}
         >
-          <Download size={16} />
+          <Download size={14} />
           <span>Export 1080x1920 Short</span>
         </button>
       </div>
@@ -584,68 +564,69 @@ export default function StudioEditor({
           {/* Aspect Ratio Segmented Selector */}
           <div style={{
             display: 'flex',
-            gap: '4px',
-            background: 'rgba(10, 14, 25, 0.7)',
-            padding: '4px',
+            gap: '3px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            padding: '3px',
             borderRadius: 'var(--radius-full)',
             border: '1px solid var(--border-subtle)',
+            boxShadow: 'var(--glass-specular)',
             marginBottom: '16px'
           }}>
             <button
               onClick={() => setAspectRatio('9:16')}
               style={{
-                background: aspectRatio === '9:16' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: aspectRatio === '9:16' ? 'rgba(255, 255, 255, 0.09)' : 'transparent',
                 color: aspectRatio === '9:16' ? '#ffffff' : 'var(--text-muted)',
-                border: aspectRatio === '9:16' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '6px 14px',
+                border: aspectRatio === '9:16' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '5px 13px',
                 borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
+                fontSize: '0.76rem',
+                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Smartphone size={13} />
+              <Smartphone size={12} />
               <span>9:16 Shorts</span>
             </button>
             <button
               onClick={() => setAspectRatio('1:1')}
               style={{
-                background: aspectRatio === '1:1' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: aspectRatio === '1:1' ? 'rgba(255, 255, 255, 0.09)' : 'transparent',
                 color: aspectRatio === '1:1' ? '#ffffff' : 'var(--text-muted)',
-                border: aspectRatio === '1:1' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '6px 14px',
+                border: aspectRatio === '1:1' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '5px 13px',
                 borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
+                fontSize: '0.76rem',
+                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Square size={13} />
+              <Square size={12} />
               <span>1:1 Square</span>
             </button>
             <button
               onClick={() => setAspectRatio('16:9')}
               style={{
-                background: aspectRatio === '16:9' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: aspectRatio === '16:9' ? 'rgba(255, 255, 255, 0.09)' : 'transparent',
                 color: aspectRatio === '16:9' ? '#ffffff' : 'var(--text-muted)',
-                border: aspectRatio === '16:9' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '6px 14px',
+                border: aspectRatio === '16:9' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '5px 13px',
                 borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
+                fontSize: '0.76rem',
+                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '5px',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Monitor size={13} />
+              <Monitor size={12} />
               <span>16:9 Landscape</span>
             </button>
           </div>
@@ -656,15 +637,15 @@ export default function StudioEditor({
             style={{
               width: aspectRatio === '9:16' ? '330px' : aspectRatio === '1:1' ? '380px' : '420px',
               height: aspectRatio === '9:16' ? '586px' : aspectRatio === '1:1' ? '380px' : '236px',
-              borderRadius: aspectRatio === '9:16' ? '40px' : '16px',
-              padding: aspectRatio === '9:16' ? '12px' : '0',
-              background: aspectRatio === '9:16' ? '#040711' : 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-              border: aspectRatio === '9:16' ? '8px solid #161b2e' : '1px solid var(--border-subtle)',
+              borderRadius: aspectRatio === '9:16' ? '42px' : '14px',
+              padding: aspectRatio === '9:16' ? '10px' : '0',
+              background: aspectRatio === '9:16' ? '#030509' : 'rgba(14, 18, 28, 0.8)',
+              border: aspectRatio === '9:16' ? '7px solid #141722' : '1px solid var(--border-subtle)',
               boxShadow: isBeatFlashing
                 ? '0 0 50px rgba(239, 68, 68, 0.9), 0 25px 50px -12px rgba(0, 0, 0, 0.8)'
                 : aspectRatio === '9:16'
                   ? 'var(--shadow-phone)'
-                  : '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+                  : '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08)',
               position: 'relative',
               overflow: 'hidden',
               display: 'flex',
@@ -681,7 +662,7 @@ export default function StudioEditor({
             <div style={{
               width: '100%',
               height: '100%',
-              borderRadius: aspectRatio === '9:16' ? '28px' : '16px',
+              borderRadius: aspectRatio === '9:16' ? '30px' : '14px',
               overflow: 'hidden',
               position: 'relative',
               backgroundColor: '#000000',
@@ -1066,17 +1047,20 @@ export default function StudioEditor({
                   }}
                 >
                   <div style={{
-                    width: '60px',
-                    height: '60px',
+                    width: '52px',
+                    height: '52px',
                     borderRadius: '50%',
-                    background: 'rgba(99, 102, 241, 0.92)',
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255, 255, 255, 0.28)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 0 25px rgba(99, 102, 241, 0.65)',
                     transition: 'transform 0.15s ease'
                   }}>
-                    <Play size={26} fill="#ffffff" color="#ffffff" style={{ marginLeft: '4px' }} />
+                    <Play size={20} fill="#ffffff" color="#ffffff" style={{ marginLeft: '3px' }} />
                   </div>
                 </div>
               )}
@@ -1133,116 +1117,122 @@ export default function StudioEditor({
           {/* Segmented Tab Navigation */}
           <div style={{
             display: 'flex',
-            gap: '6px',
-            background: 'rgba(10, 14, 25, 0.7)',
-            padding: '5px',
+            gap: '4px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            padding: '4px',
             borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border-subtle)',
+            boxShadow: 'var(--glass-specular)',
             marginBottom: '22px',
             overflowX: 'auto'
           }}>
             <button
               onClick={() => setActiveTab('framing')}
               style={{
-                background: activeTab === 'framing' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: activeTab === 'framing' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 color: activeTab === 'framing' ? '#ffffff' : 'var(--text-muted)',
-                border: activeTab === 'framing' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                fontSize: '0.82rem',
+                border: activeTab === 'framing' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                fontWeight: 500,
+                fontSize: '0.8rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 whiteSpace: 'nowrap',
+                boxShadow: activeTab === 'framing' ? 'var(--glass-specular)' : 'none',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Rows2 size={15} color={activeTab === 'framing' ? '#38bdf8' : 'currentColor'} />
+              <Rows2 size={14} color={activeTab === 'framing' ? '#ffffff' : 'var(--text-dim)'} />
               <span>Framing</span>
             </button>
 
             <button
               onClick={() => setActiveTab('pacing')}
               style={{
-                background: activeTab === 'pacing' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: activeTab === 'pacing' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 color: activeTab === 'pacing' ? '#ffffff' : 'var(--text-muted)',
-                border: activeTab === 'pacing' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                fontSize: '0.82rem',
+                border: activeTab === 'pacing' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                fontWeight: 500,
+                fontSize: '0.8rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 whiteSpace: 'nowrap',
+                boxShadow: activeTab === 'pacing' ? 'var(--glass-specular)' : 'none',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Zap size={15} color={activeTab === 'pacing' ? '#fbbf24' : 'currentColor'} />
-              <span>Pacing &amp; SFX</span>
+              <Zap size={14} color={activeTab === 'pacing' ? '#ffffff' : 'var(--text-dim)'} />
+              <span>Pacing &amp; Audio</span>
             </button>
 
             <button
               onClick={() => setActiveTab('effects')}
               style={{
-                background: activeTab === 'effects' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: activeTab === 'effects' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 color: activeTab === 'effects' ? '#ffffff' : 'var(--text-muted)',
-                border: activeTab === 'effects' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                fontSize: '0.82rem',
+                border: activeTab === 'effects' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                fontWeight: 500,
+                fontSize: '0.8rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 whiteSpace: 'nowrap',
+                boxShadow: activeTab === 'effects' ? 'var(--glass-specular)' : 'none',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Wand2 size={15} color={activeTab === 'effects' ? '#f43f5e' : 'currentColor'} />
+              <Wand2 size={14} color={activeTab === 'effects' ? '#ffffff' : 'var(--text-dim)'} />
               <span>Visual FX</span>
             </button>
 
             <button
               onClick={() => setActiveTab('styles')}
               style={{
-                background: activeTab === 'styles' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: activeTab === 'styles' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 color: activeTab === 'styles' ? '#ffffff' : 'var(--text-muted)',
-                border: activeTab === 'styles' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                fontSize: '0.82rem',
+                border: activeTab === 'styles' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                fontWeight: 500,
+                fontSize: '0.8rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 whiteSpace: 'nowrap',
+                boxShadow: activeTab === 'styles' ? 'var(--glass-specular)' : 'none',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Palette size={15} color={activeTab === 'styles' ? '#818cf8' : 'currentColor'} />
+              <Palette size={14} color={activeTab === 'styles' ? '#ffffff' : 'var(--text-dim)'} />
               <span>Captions</span>
             </button>
 
             <button
               onClick={() => setActiveTab('words')}
               style={{
-                background: activeTab === 'words' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                background: activeTab === 'words' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 color: activeTab === 'words' ? '#ffffff' : 'var(--text-muted)',
-                border: activeTab === 'words' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                fontSize: '0.82rem',
+                border: activeTab === 'words' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                fontWeight: 500,
+                fontSize: '0.8rem',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 whiteSpace: 'nowrap',
+                boxShadow: activeTab === 'words' ? 'var(--glass-specular)' : 'none',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Type size={15} color={activeTab === 'words' ? '#a5b4fc' : 'currentColor'} />
+              <Type size={14} color={activeTab === 'words' ? '#ffffff' : 'var(--text-dim)'} />
               <span>Words ({words.length})</span>
             </button>
           </div>
@@ -1261,23 +1251,24 @@ export default function StudioEditor({
                     style={{
                       padding: '14px',
                       borderRadius: 'var(--radius-sm)',
-                      background: reframeMode === 'split_stacked' ? 'rgba(99, 102, 241, 0.22)' : 'rgba(255, 255, 255, 0.03)',
-                      border: reframeMode === 'split_stacked' ? '1.5px solid #818cf8' : '1px solid var(--border-subtle)',
+                      background: reframeMode === 'split_stacked' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                      border: reframeMode === 'split_stacked' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid var(--border-subtle)',
+                      boxShadow: reframeMode === 'split_stacked' ? 'var(--glass-specular)' : 'none',
                       cursor: 'pointer',
-                      boxShadow: reframeMode === 'split_stacked' ? '0 0 20px rgba(99, 102, 241, 0.3)' : 'none'
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Users size={17} color="#818cf8" />
-                        <span style={{ fontWeight: 800, fontSize: '0.94rem', color: '#ffffff' }}>
-                          👥 Dual-Speaker Split-Screen (Opus Clip Stacked)
+                        <Users size={15} color={reframeMode === 'split_stacked' ? '#ffffff' : 'var(--text-muted)'} strokeWidth={1.5} />
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#ffffff' }}>
+                          Dual-Speaker Split View (Stacked)
                         </span>
                       </div>
-                      {reframeMode === 'split_stacked' && <Check size={16} color="#818cf8" />}
+                      {reframeMode === 'split_stacked' && <Check size={14} color="#ffffff" />}
                     </div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
-                      Splits the 9:16 phone vertically into two stacked frames: Speaker 1 on top, Speaker 2 on bottom. Perfect for interviews, conversations, and podcasts!
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                      Splits the 9:16 frame vertically into two stacked views: Speaker 1 on top, Speaker 2 on bottom. Designed for interviews and dialogue.
                     </div>
                     {reframeMode === 'split_stacked' ? (
                       <div
@@ -1446,22 +1437,24 @@ export default function StudioEditor({
                     style={{
                       padding: '14px',
                       borderRadius: 'var(--radius-sm)',
-                      background: reframeMode === 'smart_track' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                      border: reframeMode === 'smart_track' ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
-                      cursor: 'pointer'
+                      background: reframeMode === 'smart_track' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                      border: reframeMode === 'smart_track' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid var(--border-subtle)',
+                      boxShadow: reframeMode === 'smart_track' ? 'var(--glass-specular)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Crosshair size={16} color="#06b6d4" />
-                        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#ffffff' }}>
-                          🎯 Smart AI Single Speaker (Auto-Pan)
+                        <Crosshair size={15} color={reframeMode === 'smart_track' ? '#ffffff' : 'var(--text-muted)'} strokeWidth={1.5} />
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#ffffff' }}>
+                          Smart Single Speaker (Auto-Pan)
                         </span>
                       </div>
-                      {reframeMode === 'smart_track' && <Check size={16} color="#818cf8" />}
+                      {reframeMode === 'smart_track' && <Check size={14} color="#ffffff" />}
                     </div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
-                      Full-bleed vertical crop without letterboxing. Auto-pans smoothly to follow the primary speaker across the frame.
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                      Full-bleed vertical crop without letterboxing. Auto-pans smoothly to follow the active speaker.
                     </div>
 
                     {reframeMode === 'smart_track' && (
@@ -1634,19 +1627,24 @@ export default function StudioEditor({
                     style={{
                       padding: '14px',
                       borderRadius: 'var(--radius-sm)',
-                      background: reframeMode === 'crop_center' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                      border: reframeMode === 'crop_center' ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
-                      cursor: 'pointer'
+                      background: reframeMode === 'crop_center' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                      border: reframeMode === 'crop_center' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid var(--border-subtle)',
+                      boxShadow: reframeMode === 'crop_center' ? 'var(--glass-specular)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#ffffff' }}>
-                        📏 Center Fixed Crop (50% Middle)
-                      </span>
-                      {reframeMode === 'crop_center' && <Check size={16} color="#818cf8" />}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Maximize2 size={15} color={reframeMode === 'crop_center' ? '#ffffff' : 'var(--text-muted)'} strokeWidth={1.5} />
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#ffffff' }}>
+                          Center Fixed Crop (50%)
+                        </span>
+                      </div>
+                      {reframeMode === 'crop_center' && <Check size={14} color="#ffffff" />}
                     </div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}>
-                      Fixed vertical crop locked strictly to the exact center 50% of the frame.
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                      Fixed vertical crop locked strictly to the center 50% coordinate of the source video.
                     </div>
                   </div>
 
@@ -1656,18 +1654,23 @@ export default function StudioEditor({
                     style={{
                       padding: '14px',
                       borderRadius: 'var(--radius-sm)',
-                      background: reframeMode === 'blur_fill' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.03)',
-                      border: reframeMode === 'blur_fill' ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
-                      cursor: 'pointer'
+                      background: reframeMode === 'blur_fill' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+                      border: reframeMode === 'blur_fill' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid var(--border-subtle)',
+                      boxShadow: reframeMode === 'blur_fill' ? 'var(--glass-specular)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#ffffff' }}>
-                        ❄️ Frosted Blur Fill
-                      </span>
-                      {reframeMode === 'blur_fill' && <Check size={16} color="#818cf8" />}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Layers size={15} color={reframeMode === 'blur_fill' ? '#ffffff' : 'var(--text-muted)'} strokeWidth={1.5} />
+                        <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#ffffff' }}>
+                          Blurred Backdrop Fill
+                        </span>
+                      </div>
+                      {reframeMode === 'blur_fill' && <Check size={14} color="#ffffff" />}
                     </div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                       Preserves 100% widescreen view with ambient blurred bars above and below.
                     </div>
                   </div>
@@ -2163,28 +2166,28 @@ export default function StudioEditor({
                       key={p.id}
                       onClick={() => setStyle(p.id)}
                       style={{
-                        padding: '14px',
+                        padding: '12px 14px',
                         borderRadius: 'var(--radius-sm)',
-                        background: style === p.id ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.02)',
-                        border: style === p.id ? '1px solid #6366f1' : '1px solid var(--border-subtle)',
-                        boxShadow: style === p.id ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
+                        background: style === p.id ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                        border: style === p.id ? '1px solid rgba(255, 255, 255, 0.22)' : '1px solid var(--border-subtle)',
+                        boxShadow: style === p.id ? 'var(--glass-specular)' : 'none',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>{p.name}</span>
+                        <span style={{ fontWeight: 600, fontSize: '0.84rem', color: '#ffffff' }}>{p.name}</span>
                         {style === p.id && (
                           <div style={{
-                            width: '18px',
-                            height: '18px',
+                            width: '16px',
+                            height: '16px',
                             borderRadius: '50%',
-                            background: '#6366f1',
+                            background: '#ffffff',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'
                           }}>
-                            <Check size={12} color="#ffffff" />
+                            <Check size={10} color="#07090e" strokeWidth={2.5} />
                           </div>
                         )}
                       </div>

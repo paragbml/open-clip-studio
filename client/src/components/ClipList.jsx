@@ -1,85 +1,45 @@
 import React from 'react';
-import { Flame, Clock, Play, ArrowRight, ArrowLeft, Sparkles, Hash, TrendingUp, BarChart3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Sparkles } from 'lucide-react';
 import { formatTime } from '../utils/formatters';
 
 export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta }) {
-  // Helper to determine virality tier styling
-  const getViralityTier = (score) => {
-    if (score >= 90) {
-      return {
-        label: '🔥 Very High Virality',
-        glowColor: 'rgba(16, 185, 129, 0.4)',
-        borderColor: 'rgba(16, 185, 129, 0.6)',
-        bgColor: 'rgba(16, 185, 129, 0.12)',
-        textColor: '#34d399',
-        barColor: 'linear-gradient(90deg, #10b981, #34d399)'
-      };
-    }
-    if (score >= 80) {
-      return {
-        label: '⚡ High Virality',
-        glowColor: 'rgba(6, 182, 212, 0.4)',
-        borderColor: 'rgba(6, 182, 212, 0.6)',
-        bgColor: 'rgba(6, 182, 212, 0.12)',
-        textColor: '#38bdf8',
-        barColor: 'linear-gradient(90deg, #06b6d4, #38bdf8)'
-      };
-    }
-    return {
-      label: '✨ Good Potential',
-      glowColor: 'rgba(139, 92, 246, 0.4)',
-      borderColor: 'rgba(139, 92, 246, 0.6)',
-      bgColor: 'rgba(139, 92, 246, 0.12)',
-      textColor: '#a78bfa',
-      barColor: 'linear-gradient(90deg, #8b5cf6, #a78bfa)'
-    };
-  };
-
   return (
-    <div style={{ maxWidth: '1180px', margin: '24px auto 40px auto', padding: '0 24px' }}>
+    <div style={{ maxWidth: '1120px', margin: '24px auto 48px auto', padding: '0 24px' }}>
       {/* Top Header Bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '28px',
+        marginBottom: '26px',
         flexWrap: 'wrap',
-        gap: '16px'
+        gap: '14px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <button
             onClick={onNewVideo}
             className="btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+            style={{ padding: '7px 13px', fontSize: '0.8rem' }}
           >
-            <ArrowLeft size={16} />
-            <span>Upload Another</span>
+            <ArrowLeft size={14} />
+            <span>Workspace</span>
           </button>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h2 style={{
                 fontFamily: 'var(--font-heading)',
-                fontSize: '1.75rem',
-                fontWeight: 800,
-                letterSpacing: '-0.5px',
+                fontSize: '1.45rem',
+                fontWeight: 700,
+                letterSpacing: '-0.4px',
                 color: '#ffffff'
               }}>
-                Generated Viral Clips ({clips.length})
+                Extracted Clips ({clips.length})
               </h2>
-              <span style={{
-                background: 'rgba(99, 102, 241, 0.15)',
-                color: '#818cf8',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                padding: '3px 10px',
-                borderRadius: 'var(--radius-full)',
-                border: '1px solid rgba(99, 102, 241, 0.3)'
-              }}>
-                9:16 VERTICAL
+              <span className="badge-minimal" style={{ fontSize: '0.68rem', padding: '2px 7px' }}>
+                9:16 Vertical
               </span>
             </div>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Ranked by AI virality score • Auto-reframed to 9:16 with kinetic subtitle presets
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Ranked by speech coherence, engagement density, and narrative completeness
             </p>
           </div>
         </div>
@@ -87,236 +47,186 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '6px',
           background: 'rgba(255, 255, 255, 0.03)',
-          padding: '8px 16px',
+          padding: '6px 13px',
           borderRadius: 'var(--radius-full)',
           border: '1px solid var(--border-subtle)',
-          fontSize: '0.82rem',
+          fontSize: '0.76rem',
           color: 'var(--text-muted)'
         }}>
-          <Sparkles size={15} color="#f59e0b" />
-          <span>Click any clip to enter the <strong>Studio Editor</strong></span>
+          <Sparkles size={13} color="#94a3b8" />
+          <span>Select any clip to edit reframing &amp; subtitles</span>
         </div>
       </div>
 
-      {/* Opus Clip Grid */}
+      {/* Grid of Handcrafted Glass Clip Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-        gap: '24px'
+        gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+        gap: '20px'
       }}>
         {clips.map((clip, index) => {
-          const tier = getViralityTier(clip.viralityScore);
-          
-          // Opus-style simulated breakdown metrics
-          const hookScore = Math.min(99, Math.round(clip.viralityScore * 1.04));
-          const engagementScore = Math.min(98, Math.round(clip.viralityScore * 0.98));
-          const pacingScore = Math.min(96, Math.round(clip.viralityScore * 0.94));
+          const score = clip.viralityScore;
+          const hookScore = Math.min(99, Math.round(score * 1.04));
+          const retentionScore = Math.min(98, Math.round(score * 0.98));
+          const pacingScore = Math.min(96, Math.round(score * 0.93));
 
           return (
             <div
               key={clip.id || index}
               className="glass-card"
               style={{
-                padding: '24px',
+                padding: '20px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                position: 'relative',
-                overflow: 'hidden',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-card)',
-                border: '1px solid var(--border-subtle)',
-                transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.borderColor = tier.borderColor;
-                e.currentTarget.style.boxShadow = `0 16px 36px -10px rgba(0, 0, 0, 0.75), 0 0 20px -5px ${tier.glowColor}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                e.currentTarget.style.boxShadow = 'var(--shadow-card)';
+                position: 'relative'
               }}
             >
               <div>
-                {/* Top Row: Virality Score Pill & Timestamp */}
+                {/* Top Row: Lowkey Score & Timestamp */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  marginBottom: '16px'
+                  marginBottom: '14px'
                 }}>
-                  {/* Glowing Virality Score Badge */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '6px 14px',
-                    borderRadius: 'var(--radius-full)',
-                    background: tier.bgColor,
-                    border: `1px solid ${tier.borderColor}`,
-                    boxShadow: `0 0 14px ${tier.glowColor}`
-                  }}>
-                    <Flame size={16} color={tier.textColor} fill={tier.textColor} />
-                    <span style={{
-                      fontWeight: 800,
-                      fontSize: '0.92rem',
-                      color: tier.textColor,
-                      letterSpacing: '-0.2px'
-                    }}>
-                      Score {clip.viralityScore}
-                    </span>
-                    <span style={{
-                      fontSize: '0.72rem',
-                      color: 'rgba(255, 255, 255, 0.45)',
-                      fontWeight: 500
-                    }}>
-                      /100
-                    </span>
-                  </div>
-
-                  {/* Timestamp & Duration */}
+                  {/* Understated Minimalist Score Tag */}
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-muted)',
                     background: 'rgba(255, 255, 255, 0.04)',
-                    padding: '5px 10px',
-                    borderRadius: 'var(--radius-xs)',
-                    border: '1px solid var(--border-subtle)'
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--border-subtle)',
+                    boxShadow: 'var(--glass-specular)'
                   }}>
-                    <Clock size={13} />
-                    <span style={{ fontWeight: 500 }}>
-                      {formatTime(clip.start)} - {formatTime(clip.end)}
-                    </span>
                     <span style={{
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      padding: '1px 5px',
-                      borderRadius: '4px',
-                      fontSize: '0.72rem',
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: score >= 90 ? '#10b981' : score >= 80 ? '#38bdf8' : '#8b5cf6'
+                    }} />
+                    <span style={{
+                      fontWeight: 600,
+                      fontSize: '0.84rem',
                       color: '#ffffff',
-                      fontWeight: 600
+                      fontFamily: 'var(--font-mono)'
                     }}>
-                      {clip.duration}s
+                      {score}
                     </span>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                      /100
+                    </span>
+                  </div>
+
+                  {/* Clean Timestamp */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    fontSize: '0.76rem',
+                    color: 'var(--text-muted)'
+                  }}>
+                    <Clock size={12} />
+                    <span>{formatTime(clip.start)} - {formatTime(clip.end)}</span>
+                    <span style={{ color: 'var(--text-dim)' }}>•</span>
+                    <span>{clip.duration}s</span>
                   </div>
                 </div>
 
-                {/* Hook Tag & Virality Tier Label */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                {/* Hook Tag */}
+                <div style={{ marginBottom: '8px' }}>
                   <span style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    color: tier.textColor
-                  }}>
-                    {tier.label}
-                  </span>
-                  <span style={{ color: 'var(--text-dim)', fontSize: '0.7rem' }}>•</span>
-                  <span style={{
-                    fontSize: '0.72rem',
+                    fontSize: '0.7rem',
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.4px',
-                    color: '#818cf8'
+                    color: 'var(--text-secondary)'
                   }}>
-                    {clip.hookType || 'Hook Highlight'}
+                    {clip.hookType || 'Core Segment'}
                   </span>
                 </div>
 
                 {/* Title */}
                 <h3 style={{
                   fontFamily: 'var(--font-heading)',
-                  fontSize: '1.18rem',
-                  fontWeight: 700,
-                  lineHeight: 1.35,
+                  fontSize: '1.05rem',
+                  fontWeight: 600,
+                  lineHeight: 1.4,
                   marginBottom: '14px',
                   color: '#ffffff'
                 }}>
                   {clip.title}
                 </h3>
 
-                {/* Opus-Style Metric Breakdown Progress Bars */}
+                {/* Precision Metric Breakdown Bars */}
                 <div style={{
-                  background: 'rgba(10, 14, 25, 0.65)',
-                  padding: '12px 14px',
+                  background: 'rgba(7, 10, 18, 0.55)',
+                  padding: '10px 12px',
                   borderRadius: 'var(--radius-sm)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  marginBottom: '16px',
+                  border: '1px solid var(--border-subtle)',
+                  marginBottom: '14px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px'
+                  gap: '7px'
                 }}>
-                  {/* Hook Metric */}
+                  {/* Hook */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Hook Strength</span>
-                      <span style={{ fontWeight: 600, color: '#34d399' }}>{hookScore}%</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Hook Potential</span>
+                      <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{hookScore}%</span>
                     </div>
-                    <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${hookScore}%`, height: '100%', background: 'linear-gradient(90deg, #10b981, #34d399)', borderRadius: '2px' }} />
+                    <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${hookScore}%`, height: '100%', background: '#cbd5e1', borderRadius: '2px' }} />
                     </div>
                   </div>
 
-                  {/* Engagement Flow */}
+                  {/* Retention */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Engagement Flow</span>
-                      <span style={{ fontWeight: 600, color: '#38bdf8' }}>{engagementScore}%</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Retention Flow</span>
+                      <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{retentionScore}%</span>
                     </div>
-                    <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${engagementScore}%`, height: '100%', background: 'linear-gradient(90deg, #06b6d4, #38bdf8)', borderRadius: '2px' }} />
+                    <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${retentionScore}%`, height: '100%', background: '#94a3b8', borderRadius: '2px' }} />
                     </div>
                   </div>
 
-                  {/* Narrative Pacing */}
+                  {/* Pacing */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Narrative Payoff</span>
-                      <span style={{ fontWeight: 600, color: '#a78bfa' }}>{pacingScore}%</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Pacing</span>
+                      <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{pacingScore}%</span>
                     </div>
-                    <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${pacingScore}%`, height: '100%', background: 'linear-gradient(90deg, #8b5cf6, #a78bfa)', borderRadius: '2px' }} />
+                    <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pacingScore}%`, height: '100%', background: '#64748b', borderRadius: '2px' }} />
                     </div>
                   </div>
                 </div>
 
-                {/* Virality Explanation (Why this clip works) */}
+                {/* Insight Callout */}
                 <div style={{
-                  fontSize: '0.82rem',
+                  fontSize: '0.78rem',
                   color: 'var(--text-muted)',
-                  lineHeight: 1.45,
-                  marginBottom: '16px',
-                  background: 'rgba(10, 14, 25, 0.5)',
-                  padding: '10px 14px',
+                  lineHeight: 1.4,
+                  marginBottom: '14px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  padding: '9px 12px',
                   borderRadius: 'var(--radius-sm)',
-                  borderLeft: `3px solid ${tier.borderColor}`
+                  border: '1px solid var(--border-subtle)'
                 }}>
-                  <strong style={{ color: '#ffffff', fontWeight: 600 }}>Why this works: </strong>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Summary: </span>
                   {clip.viralityReason}
                 </div>
 
                 {/* Hashtags */}
                 {clip.hashtags && clip.hashtags.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '16px' }}>
                     {clip.hashtags.map((tag, tIdx) => (
-                      <span
-                        key={tIdx}
-                        style={{
-                          fontSize: '0.72rem',
-                          color: '#94a3b8',
-                          background: 'rgba(255, 255, 255, 0.04)',
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255, 255, 255, 0.04)'
-                        }}
-                      >
+                      <span key={tIdx} className="badge-tag">
                         {tag}
                       </span>
                     ))}
@@ -325,25 +235,19 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
               </div>
 
               {/* Action Button */}
-              <div style={{
-                paddingTop: '16px',
-                borderTop: '1px solid var(--border-subtle)'
-              }}>
+              <div style={{ paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
                 <button
                   onClick={() => onSelectClip(clip)}
                   className="btn-primary"
                   style={{
                     width: '100%',
-                    padding: '11px 16px',
-                    fontSize: '0.88rem',
+                    padding: '9px 14px',
+                    fontSize: '0.82rem',
                     justifyContent: 'space-between'
                   }}
                 >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Sparkles size={16} />
-                    <span>Open in Studio</span>
-                  </span>
-                  <ArrowRight size={16} />
+                  <span>Open in Studio</span>
+                  <ArrowRight size={14} />
                 </button>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, Link as LinkIcon, Play, Sparkles, AlertCircle, ArrowRight, Loader2, Zap, Video, Check } from 'lucide-react';
+import { UploadCloud, Link as LinkIcon, Play, Sparkles, ArrowRight, Loader2, Zap, Film } from 'lucide-react';
 
 export default function IngestionZone({
   onSelectSample,
@@ -46,78 +46,74 @@ export default function IngestionZone({
   };
 
   return (
-    <div style={{ maxWidth: '1040px', margin: '30px auto 48px auto', padding: '0 24px' }}>
+    <div style={{ maxWidth: '980px', margin: '36px auto 56px auto', padding: '0 24px' }}>
       {/* Hero Header */}
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
         <div style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '6px 14px',
+          gap: '7px',
+          padding: '4px 12px',
           borderRadius: 'var(--radius-full)',
-          background: 'rgba(99, 102, 241, 0.1)',
-          border: '1px solid rgba(99, 102, 241, 0.25)',
-          color: '#a5b4fc',
-          fontSize: '0.82rem',
-          fontWeight: 600,
-          marginBottom: '16px'
+          background: 'rgba(255, 255, 255, 0.04)',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: 'var(--glass-specular)',
+          color: 'var(--text-secondary)',
+          fontSize: '0.78rem',
+          fontWeight: 500,
+          marginBottom: '18px'
         }}>
-          <Sparkles size={14} color="#818cf8" />
-          <span>AI-Powered Video Repurposing • Free & Unlimited</span>
+          <Sparkles size={13} color="#94a3b8" />
+          <span>Automated Video Repurposing &amp; Kinetic Studio</span>
         </div>
 
         <h1 style={{
           fontFamily: 'var(--font-heading)',
-          fontSize: '2.8rem',
-          fontWeight: 800,
+          fontSize: '2.75rem',
+          fontWeight: 700,
           lineHeight: 1.15,
           letterSpacing: '-1px',
-          marginBottom: '14px',
-          color: '#ffffff'
-        }}>
-          Turn Long Videos Into{' '}
-          <span style={{
-            background: 'linear-gradient(135deg, #f59e0b 0%, #ec4899 50%, #8b5cf6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>
-            Viral Vertical Shorts
-          </span>
+          marginBottom: '14px'
+        }} className="text-specular">
+          Repurpose Long Videos Into Viral Vertical Shorts
         </h1>
 
         <p style={{
-          fontSize: '1.05rem',
+          fontSize: '1.02rem',
           color: 'var(--text-muted)',
-          maxWidth: '640px',
+          maxWidth: '600px',
           margin: '0 auto',
-          lineHeight: 1.5
+          lineHeight: 1.55,
+          fontWeight: 400
         }}>
-          Auto-transcribe speech, detect top viral moments, auto-track speakers into 9:16, and generate animated kinetic subtitles.
+          Automated speech transcription, intelligent speaker re-centering, and animated kinetic typography.
         </p>
       </div>
 
       {/* Lowkey Pipeline Controls Strip */}
       <div style={{
-        background: 'rgba(17, 22, 39, 0.6)',
+        background: 'rgba(14, 18, 28, 0.6)',
+        backdropFilter: 'blur(20px)',
         border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--glass-specular)',
         borderRadius: 'var(--radius-md)',
-        padding: '12px 20px',
-        marginBottom: '28px',
+        padding: '10px 18px',
+        marginBottom: '26px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '14px'
+        gap: '12px'
       }}>
-        {/* Speed Scan Selector */}
+        {/* Analysis Mode Segmented Toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Analysis:
+          <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 500, letterSpacing: '0.3px', textTransform: 'uppercase' }}>
+            Analysis
           </span>
           <div style={{
             display: 'flex',
-            background: 'rgba(0, 0, 0, 0.3)',
-            borderRadius: 'var(--radius-full)',
+            background: 'rgba(0, 0, 0, 0.35)',
+            borderRadius: 'var(--radius-sm)',
             padding: '3px',
             border: '1px solid var(--border-subtle)'
           }}>
@@ -125,96 +121,94 @@ export default function IngestionZone({
               type="button"
               onClick={() => onScanModeChange && onScanModeChange('lightning')}
               style={{
-                background: scanMode === 'lightning' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                border: scanMode === 'lightning' ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid transparent',
-                color: scanMode === 'lightning' ? '#fbbf24' : 'var(--text-muted)',
+                background: scanMode === 'lightning' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                border: scanMode === 'lightning' ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid transparent',
+                color: scanMode === 'lightning' ? '#ffffff' : 'var(--text-muted)',
                 padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
+                borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontWeight: 600,
-                fontSize: '0.78rem'
+                fontWeight: 500,
+                fontSize: '0.76rem',
+                boxShadow: scanMode === 'lightning' ? 'var(--glass-specular)' : 'none'
               }}
             >
-              <Zap size={13} fill={scanMode === 'lightning' ? '#fbbf24' : 'none'} />
-              <span>⚡ Lightning (10 min preview)</span>
+              <Zap size={12} color={scanMode === 'lightning' ? '#ffffff' : 'currentColor'} />
+              <span>Fast Preview (10m)</span>
             </button>
 
             <button
               type="button"
               onClick={() => onScanModeChange && onScanModeChange('full')}
               style={{
-                background: scanMode === 'full' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                border: scanMode === 'full' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                background: scanMode === 'full' ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                border: scanMode === 'full' ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid transparent',
                 color: scanMode === 'full' ? '#ffffff' : 'var(--text-muted)',
                 padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
+                borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontWeight: 600,
-                fontSize: '0.78rem'
+                fontWeight: 500,
+                fontSize: '0.76rem',
+                boxShadow: scanMode === 'full' ? 'var(--glass-specular)' : 'none'
               }}
             >
-              <Video size={13} />
+              <Film size={12} color={scanMode === 'full' ? '#ffffff' : 'currentColor'} />
               <span>Full Video Scan</span>
             </button>
           </div>
         </div>
 
-        {/* Viral Hook Scan Switch */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Viral Hook Switch */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
             onClick={() => onEnableHookScanChange && onEnableHookScanChange(!enableHookScan)}
             style={{
-              background: enableHookScan
-                ? 'rgba(16, 185, 129, 0.15)'
-                : 'rgba(255, 255, 255, 0.03)',
-              border: enableHookScan
-                ? '1px solid rgba(16, 185, 129, 0.4)'
-                : '1px solid var(--border-subtle)',
-              color: enableHookScan ? '#34d399' : 'var(--text-muted)',
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-full)',
+              background: enableHookScan ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)',
+              border: enableHookScan ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid var(--border-subtle)',
+              color: enableHookScan ? '#ffffff' : 'var(--text-muted)',
+              padding: '5px 12px',
+              borderRadius: 'var(--radius-sm)',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              fontWeight: 600,
-              fontSize: '0.78rem',
+              fontWeight: 500,
+              fontSize: '0.76rem',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              boxShadow: enableHookScan ? 'var(--glass-specular)' : 'none'
             }}
           >
             <span style={{
-              width: '30px',
-              height: '16px',
+              width: '26px',
+              height: '14px',
               borderRadius: '8px',
-              background: enableHookScan ? '#10b981' : 'rgba(255,255,255,0.15)',
+              background: enableHookScan ? '#ffffff' : 'rgba(255, 255, 255, 0.15)',
               position: 'relative',
               display: 'inline-block',
               transition: 'background 0.2s ease',
               flexShrink: 0
             }}>
               <span style={{
-                width: '12px',
-                height: '12px',
+                width: '10px',
+                height: '10px',
                 borderRadius: '50%',
-                background: '#fff',
+                background: enableHookScan ? '#07090e' : '#ffffff',
                 position: 'absolute',
                 top: '2px',
-                left: enableHookScan ? '16px' : '2px',
+                left: enableHookScan ? '14px' : '2px',
                 transition: 'left 0.2s ease'
               }} />
             </span>
-            <span>🎣 Prioritize Viral Hooks</span>
+            <span>Hook Prioritization</span>
           </button>
         </div>
       </div>
 
-      {/* Main Ingestion Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '22px', marginBottom: '32px' }}>
+      {/* Ingestion Cards Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         {/* Upload Box */}
         <div
           onDragEnter={handleDrag}
@@ -224,16 +218,15 @@ export default function IngestionZone({
           onClick={() => fileInputRef.current?.click()}
           className="glass-card"
           style={{
-            padding: '36px 24px',
+            padding: '34px 24px',
             textAlign: 'center',
             cursor: 'pointer',
-            border: dragActive ? '2px dashed #6366f1' : '1px dashed var(--border-subtle)',
-            backgroundColor: dragActive ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-card)',
+            border: dragActive ? '1px dashed #ffffff' : '1px solid var(--border-subtle)',
+            backgroundColor: dragActive ? 'rgba(255, 255, 255, 0.05)' : 'var(--bg-card)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative'
+            justifyContent: 'center'
           }}
         >
           <input
@@ -244,56 +237,56 @@ export default function IngestionZone({
             onChange={handleFileChange}
           />
           <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            boxShadow: 'var(--glass-specular)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '16px',
-            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
+            marginBottom: '14px'
           }}>
-            <UploadCloud size={26} color="#818cf8" />
+            <UploadCloud size={22} color="#cbd5e1" strokeWidth={1.5} />
           </div>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px', color: '#ffffff' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: '5px', color: '#ffffff' }}>
             Upload Local Video
           </h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-            Drag &amp; drop MP4, MOV, MKV, or WEBM (up to 4GB)
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+            MP4, MOV, MKV, or WEBM (up to 4GB)
           </p>
-          <span className="btn-secondary" style={{ pointerEvents: 'none', fontSize: '0.82rem' }}>
-            Browse Computer
+          <span className="btn-secondary" style={{ pointerEvents: 'none', fontSize: '0.78rem', padding: '6px 14px' }}>
+            Select File
           </span>
         </div>
 
         {/* URL Box */}
         <div className="glass-card" style={{
-          padding: '36px 24px',
+          padding: '34px 24px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center'
         }}>
           <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
-            border: '1px solid rgba(6, 182, 212, 0.3)',
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            boxShadow: 'var(--glass-specular)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: '16px',
-            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
+            marginBottom: '14px'
           }}>
-            <LinkIcon size={24} color="#06b6d4" />
+            <LinkIcon size={20} color="#cbd5e1" strokeWidth={1.5} />
           </div>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px', color: '#ffffff' }}>
-            Paste Public Video URL
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: '5px', color: '#ffffff' }}>
+            Import Public Video URL
           </h3>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
-            Supports YouTube, Twitter/X, Vimeo, and Twitch via built-in downloader
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+            Paste YouTube, Twitter/X, Vimeo, or Twitch links
           </p>
 
           <form onSubmit={handleSubmitUrl} style={{ display: 'flex', gap: '8px' }}>
@@ -304,84 +297,77 @@ export default function IngestionZone({
               onChange={(e) => setUrl(e.target.value)}
               style={{
                 flex: 1,
-                padding: '11px 14px',
+                padding: '9px 13px',
                 borderRadius: 'var(--radius-sm)',
-                background: 'rgba(10, 14, 25, 0.85)',
+                background: 'rgba(7, 10, 18, 0.8)',
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text-main)',
-                fontSize: '0.86rem'
+                fontSize: '0.84rem'
               }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--border-focus)'}
+              onFocus={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)'}
               onBlur={(e) => e.target.style.borderColor = 'var(--border-subtle)'}
             />
             <button
               type="submit"
               disabled={!url.trim() || isLoading}
               className="btn-primary"
-              style={{ padding: '11px 18px' }}
+              style={{ padding: '9px 14px' }}
             >
-              {isLoading ? <Loader2 size={16} className="spin-animate" /> : <ArrowRight size={16} />}
+              {isLoading ? <Loader2 size={15} className="spin-animate" /> : <ArrowRight size={15} />}
             </button>
           </form>
         </div>
       </div>
 
-      {/* Interactive Built-in Demos Section */}
+      {/* Handcrafted Interactive Project Demos */}
       {samples && samples.length > 0 && (
-        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={16} color="#fbbf24" />
-              <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '0.01em' }}>
-                Instant 1-Click Interactive Demos
-              </span>
-            </div>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Zero-wait • Pre-rendered AI viral highlights
+        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Interactive Pre-Analyzed Demos
+            </span>
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>
+              Instant zero-load testing
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: samples.length > 1 ? 'repeat(auto-fit, minmax(440px, 1fr))' : '1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: samples.length > 1 ? 'repeat(auto-fit, minmax(420px, 1fr))' : '1fr', gap: '14px' }}>
             {samples.map((sample, idx) => (
               <div
                 key={sample.id || idx}
                 className="glass-card"
                 style={{
-                  padding: '18px 22px',
+                  padding: '16px 20px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  border: idx === 1 ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(245, 158, 11, 0.25)',
-                  background: idx === 1
-                    ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.06) 100%)'
-                    : 'linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(99, 102, 241, 0.06) 100%)',
-                  borderRadius: 'var(--radius-md)'
+                  justifyContent: 'space-between'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, marginRight: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, marginRight: '14px' }}>
                   <div style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '10px',
-                    background: idx === 1 ? 'rgba(99, 102, 241, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: idx === 1 ? '#818cf8' : '#fbbf24',
+                    color: 'var(--text-secondary)',
                     flexShrink: 0
                   }}>
-                    {idx === 1 ? <Video size={20} /> : <Play size={20} fill="#fbbf24" />}
+                    <Play size={15} fill="currentColor" />
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#ffffff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#ffffff' }}>
                         {sample.title}
                       </span>
-                      <span className={idx === 1 ? 'badge-viral' : 'badge-viral'} style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
-                        {idx === 1 ? 'Dual-Speaker Debate' : 'Podcast Demo'}
+                      <span className="badge-tag">
+                        {idx === 1 ? 'Dual-Speaker' : 'Podcast'}
                       </span>
                     </div>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
                       {sample.description}
                     </p>
                   </div>
@@ -390,21 +376,16 @@ export default function IngestionZone({
                 <button
                   onClick={() => onSelectSample(sample)}
                   disabled={isLoading}
-                  className="btn-primary"
+                  className="btn-secondary"
                   style={{
-                    background: idx === 1
-                      ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)'
-                      : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    boxShadow: idx === 1
-                      ? '0 4px 14px rgba(99, 102, 241, 0.35)'
-                      : '0 4px 14px rgba(245, 158, 11, 0.3)',
-                    padding: '9px 16px',
-                    fontSize: '0.84rem',
-                    flexShrink: 0
+                    padding: '7px 13px',
+                    fontSize: '0.78rem',
+                    flexShrink: 0,
+                    color: '#ffffff'
                   }}
                 >
-                  {isLoading ? <Loader2 size={15} className="spin-animate" /> : <Play size={15} fill="white" />}
-                  <span>{idx === 1 ? 'Try Debate Demo' : 'Try Podcast Demo'}</span>
+                  {isLoading ? <Loader2 size={13} className="spin-animate" /> : <Play size={13} />}
+                  <span>Open Demo</span>
                 </button>
               </div>
             ))}

@@ -1,82 +1,83 @@
 import React from 'react';
-import { Film, Sliders, Sparkles, ChevronRight, Plus, CheckCircle2, Activity } from 'lucide-react';
+import { Film, Sliders, ChevronRight, Plus } from 'lucide-react';
 
 export default function Header({ onOpenSettings, status, view = 'ingestion', onNavigate, onNewVideo }) {
   return (
     <header style={{
       margin: '14px 24px 8px 24px',
-      padding: '12px 24px',
+      padding: '10px 20px',
       borderRadius: 'var(--radius-md)',
-      background: 'rgba(13, 17, 30, 0.82)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
+      background: 'rgba(11, 14, 23, 0.75)',
+      backdropFilter: 'blur(24px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(24px) saturate(180%)',
       border: '1px solid var(--border-subtle)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       position: 'relative',
       zIndex: 30,
-      boxShadow: '0 8px 32px -8px rgba(0, 0, 0, 0.5)'
+      boxShadow: 'var(--glass-specular)'
     }}>
-      {/* Brand & Breadcrumbs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+      {/* Brand & Workspace Breadcrumbs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div
           onClick={() => onNavigate && onNavigate('ingestion')}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
+            gap: '10px',
             cursor: onNavigate ? 'pointer' : 'default',
             userSelect: 'none'
           }}
         >
+          {/* Handcrafted Obsidian Icon Tile */}
           <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 18px rgba(99, 102, 241, 0.4)',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
+            justifyContent: 'center'
           }}>
-            <Film size={20} color="#ffffff" />
+            <Film size={16} color="#f8fafc" strokeWidth={1.75} />
           </div>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '1.25rem',
-                fontWeight: 800,
-                letterSpacing: '-0.3px',
-                color: '#ffffff'
-              }}>
-                OpenClip
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '1.25rem',
-                fontWeight: 400,
-                color: '#818cf8'
-              }}>
-                Studio
-              </span>
-              <span className="badge-free" style={{ marginLeft: '4px' }}>FREE & UNLIMITED</span>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '1.05rem',
+              fontWeight: 600,
+              letterSpacing: '-0.3px',
+              color: '#ffffff'
+            }}>
+              OpenClip
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '1.05rem',
+              fontWeight: 400,
+              color: 'var(--text-muted)'
+            }}>
+              Studio
+            </span>
+            <span className="badge-minimal" style={{ fontSize: '0.68rem', padding: '1px 7px', marginLeft: '2px' }}>
+              Studio Edition
+            </span>
           </div>
         </div>
 
-        {/* Lowkey Breadcrumbs */}
+        {/* Minimalist Lowkey Breadcrumbs */}
         {view !== 'ingestion' && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            paddingLeft: '16px',
+            gap: '6px',
+            paddingLeft: '14px',
             borderLeft: '1px solid var(--border-subtle)',
-            fontSize: '0.82rem',
+            fontSize: '0.78rem',
             color: 'var(--text-muted)'
           }}>
             <button
@@ -85,16 +86,17 @@ export default function Header({ onOpenSettings, status, view = 'ingestion', onN
                 background: 'transparent',
                 color: 'var(--text-muted)',
                 padding: 0,
-                fontSize: 'inherit'
+                fontSize: 'inherit',
+                fontWeight: 500
               }}
               onMouseEnter={(e) => e.target.style.color = '#ffffff'}
               onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
             >
               Workspace
             </button>
-            <ChevronRight size={13} color="var(--text-dim)" />
+            <ChevronRight size={12} color="var(--text-dim)" />
             {view === 'clips' ? (
-              <span style={{ color: '#ffffff', fontWeight: 600 }}>Viral Clips</span>
+              <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Viral Clips</span>
             ) : (
               <>
                 <button
@@ -103,15 +105,16 @@ export default function Header({ onOpenSettings, status, view = 'ingestion', onN
                     background: 'transparent',
                     color: 'var(--text-muted)',
                     padding: 0,
-                    fontSize: 'inherit'
+                    fontSize: 'inherit',
+                    fontWeight: 500
                   }}
                   onMouseEnter={(e) => e.target.style.color = '#ffffff'}
                   onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
                 >
                   Viral Clips
                 </button>
-                <ChevronRight size={13} color="var(--text-dim)" />
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Clip Studio</span>
+                <ChevronRight size={12} color="var(--text-dim)" />
+                <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>Clip Studio</span>
               </>
             )}
           </div>
@@ -119,48 +122,44 @@ export default function Header({ onOpenSettings, status, view = 'ingestion', onN
       </div>
 
       {/* Right Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Realtime Engine Status Pill */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Lowkey Status Indicator */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          gap: '7px',
           background: 'rgba(255, 255, 255, 0.03)',
-          padding: '6px 14px',
+          padding: '5px 11px',
           borderRadius: 'var(--radius-full)',
           border: '1px solid var(--border-subtle)',
-          fontSize: '0.78rem'
+          fontSize: '0.74rem',
+          color: 'var(--text-muted)'
         }}>
           <span
             className="pulse-dot"
             style={{
-              width: '7px',
-              height: '7px',
+              width: '6px',
+              height: '6px',
               borderRadius: '50%',
               background: '#10b981',
-              boxShadow: '0 0 8px #10b981',
+              boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
               display: 'inline-block'
             }}
           />
-          <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>
-            {status?.ffmpegReady ? 'Local AI Engine' : 'AI Virality Engine Active'}
+          <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
+            {status?.ffmpegReady ? 'Local Engine' : 'AI Engine Ready'}
           </span>
         </div>
 
-        {/* Quick New Video Button when inside clips or studio */}
+        {/* Quick New Video Button */}
         {view !== 'ingestion' && onNewVideo && (
           <button
             onClick={onNewVideo}
             className="btn-secondary"
-            style={{
-              padding: '7px 13px',
-              fontSize: '0.8rem',
-              gap: '6px',
-              background: 'rgba(255, 255, 255, 0.05)'
-            }}
-            title="Repurpose a new video"
+            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '5px' }}
+            title="Import a new video"
           >
-            <Plus size={14} />
+            <Plus size={13} />
             <span>New Video</span>
           </button>
         )}
@@ -169,15 +168,11 @@ export default function Header({ onOpenSettings, status, view = 'ingestion', onN
         <button
           onClick={onOpenSettings}
           className="btn-secondary"
-          style={{
-            padding: '7px 13px',
-            fontSize: '0.8rem',
-            gap: '6px'
-          }}
+          style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '5px' }}
           title="Configure API Keys or Settings"
         >
-          <Sliders size={14} />
-          <span>AI Settings</span>
+          <Sliders size={13} />
+          <span>Settings</span>
         </button>
       </div>
     </header>
