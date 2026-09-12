@@ -336,6 +336,9 @@ export default function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header
         status={systemStatus}
+        view={view}
+        onNavigate={setView}
+        onNewVideo={handleNewVideo}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 

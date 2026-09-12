@@ -497,34 +497,59 @@ export default function StudioEditor({
   ];
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '10px auto 30px auto', padding: '0 24px' }}>
+    <div style={{ maxWidth: '1280px', margin: '8px auto 36px auto', padding: '0 24px' }}>
       {/* Top Header */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: '20px'
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        gap: '14px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button onClick={onBack} className="btn-secondary" style={{ padding: '8px 14px' }}>
+          <button
+            onClick={onBack}
+            className="btn-secondary"
+            style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+          >
             <ArrowLeft size={16} />
             <span>Back to Clips</span>
           </button>
           <div>
             <h2 style={{
               fontFamily: 'var(--font-heading)',
-              fontSize: '1.35rem',
+              fontSize: '1.38rem',
               fontWeight: 800,
-              color: '#ffffff'
+              color: '#ffffff',
+              letterSpacing: '-0.3px',
+              marginBottom: '2px'
             }}>
               {clip.title}
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              <span style={{ color: '#f59e0b', fontWeight: 600 }}>Virality Score: {clip.viralityScore}/100</span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                color: clip.viralityScore >= 90 ? '#34d399' : clip.viralityScore >= 80 ? '#38bdf8' : '#a78bfa',
+                fontWeight: 700
+              }}>
+                <Flame size={14} />
+                <span>Score: {clip.viralityScore}/100</span>
+              </span>
               <span>•</span>
               <span>Trim: {formatTime(trimStart)} - {formatTime(trimEnd)} ({(trimEnd - trimStart).toFixed(1)}s)</span>
               {trackingData.hasTwoSpeakers && (
-                <span style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                <span style={{
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  color: '#a5b4fc',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontWeight: 700,
+                  fontSize: '0.74rem',
+                  border: '1px solid rgba(99, 102, 241, 0.3)'
+                }}>
                   👥 2 Speakers Detected
                 </span>
               )}
@@ -537,7 +562,9 @@ export default function StudioEditor({
           className="btn-primary"
           style={{
             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+            boxShadow: '0 4px 18px rgba(16, 185, 129, 0.45)',
+            padding: '10px 20px',
+            fontSize: '0.88rem'
           }}
         >
           <Download size={16} />
@@ -554,86 +581,107 @@ export default function StudioEditor({
       }}>
         {/* Left Column: Phone Mockup Video Player */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {/* Aspect Ratio Selector */}
+          {/* Aspect Ratio Segmented Selector */}
           <div style={{
             display: 'flex',
-            gap: '8px',
-            background: 'rgba(255, 255, 255, 0.05)',
+            gap: '4px',
+            background: 'rgba(10, 14, 25, 0.7)',
             padding: '4px',
-            borderRadius: 'var(--radius-sm)',
-            marginBottom: '14px'
+            borderRadius: 'var(--radius-full)',
+            border: '1px solid var(--border-subtle)',
+            marginBottom: '16px'
           }}>
             <button
               onClick={() => setAspectRatio('9:16')}
               style={{
-                background: aspectRatio === '9:16' ? 'var(--primary)' : 'transparent',
-                color: '#ffffff',
+                background: aspectRatio === '9:16' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: aspectRatio === '9:16' ? '#ffffff' : 'var(--text-muted)',
+                border: aspectRatio === '9:16' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
                 padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Smartphone size={14} />
+              <Smartphone size={13} />
               <span>9:16 Shorts</span>
             </button>
             <button
               onClick={() => setAspectRatio('1:1')}
               style={{
-                background: aspectRatio === '1:1' ? 'var(--primary)' : 'transparent',
-                color: '#ffffff',
+                background: aspectRatio === '1:1' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: aspectRatio === '1:1' ? '#ffffff' : 'var(--text-muted)',
+                border: aspectRatio === '1:1' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
                 padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Square size={14} />
+              <Square size={13} />
               <span>1:1 Square</span>
             </button>
             <button
               onClick={() => setAspectRatio('16:9')}
               style={{
-                background: aspectRatio === '16:9' ? 'var(--primary)' : 'transparent',
-                color: '#ffffff',
+                background: aspectRatio === '16:9' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: aspectRatio === '16:9' ? '#ffffff' : 'var(--text-muted)',
+                border: aspectRatio === '16:9' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
                 padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Monitor size={14} />
+              <Monitor size={13} />
               <span>16:9 Landscape</span>
             </button>
           </div>
 
           {/* Smartphone Mockup Frame */}
-          <div style={{
-            width: aspectRatio === '9:16' ? '330px' : aspectRatio === '1:1' ? '380px' : '420px',
-            height: aspectRatio === '9:16' ? '586px' : aspectRatio === '1:1' ? '380px' : '236px',
-            borderRadius: aspectRatio === '9:16' ? '36px' : '16px',
-            padding: aspectRatio === '9:16' ? '12px' : '0',
-            background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-            boxShadow: isBeatFlashing
-              ? '0 0 50px rgba(239, 68, 68, 0.9), 0 25px 50px -12px rgba(0, 0, 0, 0.8)'
-              : '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-            position: 'relative',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            transition: 'box-shadow 0.15s ease'
-          }}>
+          <div
+            className={aspectRatio === '9:16' ? 'smartphone-mockup' : ''}
+            style={{
+              width: aspectRatio === '9:16' ? '330px' : aspectRatio === '1:1' ? '380px' : '420px',
+              height: aspectRatio === '9:16' ? '586px' : aspectRatio === '1:1' ? '380px' : '236px',
+              borderRadius: aspectRatio === '9:16' ? '40px' : '16px',
+              padding: aspectRatio === '9:16' ? '12px' : '0',
+              background: aspectRatio === '9:16' ? '#040711' : 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+              border: aspectRatio === '9:16' ? '8px solid #161b2e' : '1px solid var(--border-subtle)',
+              boxShadow: isBeatFlashing
+                ? '0 0 50px rgba(239, 68, 68, 0.9), 0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+                : aspectRatio === '9:16'
+                  ? 'var(--shadow-phone)'
+                  : '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+              position: 'relative',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'box-shadow 0.15s ease'
+            }}
+          >
+            {/* Dynamic Island at Top */}
+            {aspectRatio === '9:16' && <div className="smartphone-island" />}
+            {/* Home Indicator Bar at Bottom */}
+            {aspectRatio === '9:16' && <div className="smartphone-homebar" />}
+
             {/* Screen Area */}
             <div style={{
               width: '100%',
               height: '100%',
-              borderRadius: aspectRatio === '9:16' ? '26px' : '16px',
+              borderRadius: aspectRatio === '9:16' ? '28px' : '16px',
               overflow: 'hidden',
               position: 'relative',
               backgroundColor: '#000000',
@@ -1082,102 +1130,119 @@ export default function StudioEditor({
 
         {/* Right Column: Tabbed Customization Panel */}
         <div className="glass-panel" style={{ padding: '24px', minHeight: '580px' }}>
-          {/* Tabs */}
+          {/* Segmented Tab Navigation */}
           <div style={{
             display: 'flex',
-            gap: '8px',
-            borderBottom: '1px solid var(--border-subtle)',
-            paddingBottom: '14px',
-            marginBottom: '20px',
-            flexWrap: 'wrap'
+            gap: '6px',
+            background: 'rgba(10, 14, 25, 0.7)',
+            padding: '5px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-subtle)',
+            marginBottom: '22px',
+            overflowX: 'auto'
           }}>
             <button
               onClick={() => setActiveTab('framing')}
               style={{
-                background: activeTab === 'framing' ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                color: activeTab === 'framing' ? '#818cf8' : 'var(--text-muted)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 700,
-                fontSize: '0.84rem',
+                background: activeTab === 'framing' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: activeTab === 'framing' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'framing' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.82rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Rows2 size={15} color={activeTab === 'framing' ? '#06b6d4' : 'currentColor'} />
-              <span>🎯 Framing &amp; Split-Screen</span>
+              <Rows2 size={15} color={activeTab === 'framing' ? '#38bdf8' : 'currentColor'} />
+              <span>Framing</span>
             </button>
 
             <button
               onClick={() => setActiveTab('pacing')}
               style={{
-                background: activeTab === 'pacing' ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                color: activeTab === 'pacing' ? '#818cf8' : 'var(--text-muted)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 700,
-                fontSize: '0.84rem',
+                background: activeTab === 'pacing' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: activeTab === 'pacing' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'pacing' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.82rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Zap size={15} color={activeTab === 'pacing' ? '#f59e0b' : 'currentColor'} />
-              <span>⚡ Pacing &amp; SFX</span>
+              <Zap size={15} color={activeTab === 'pacing' ? '#fbbf24' : 'currentColor'} />
+              <span>Pacing &amp; SFX</span>
             </button>
 
             <button
               onClick={() => setActiveTab('effects')}
               style={{
-                background: activeTab === 'effects' ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                color: activeTab === 'effects' ? '#818cf8' : 'var(--text-muted)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 700,
-                fontSize: '0.84rem',
+                background: activeTab === 'effects' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: activeTab === 'effects' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'effects' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.82rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Wand2 size={15} color={activeTab === 'effects' ? '#ec4899' : 'currentColor'} />
-              <span>✨ Visual FX</span>
+              <Wand2 size={15} color={activeTab === 'effects' ? '#f43f5e' : 'currentColor'} />
+              <span>Visual FX</span>
             </button>
 
             <button
               onClick={() => setActiveTab('styles')}
               style={{
-                background: activeTab === 'styles' ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                color: activeTab === 'styles' ? '#818cf8' : 'var(--text-muted)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 700,
-                fontSize: '0.84rem',
+                background: activeTab === 'styles' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: activeTab === 'styles' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'styles' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.82rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Palette size={15} />
+              <Palette size={15} color={activeTab === 'styles' ? '#818cf8' : 'currentColor'} />
               <span>Captions</span>
             </button>
 
             <button
               onClick={() => setActiveTab('words')}
               style={{
-                background: activeTab === 'words' ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                color: activeTab === 'words' ? '#818cf8' : 'var(--text-muted)',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                fontWeight: 700,
-                fontSize: '0.84rem',
+                background: activeTab === 'words' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                color: activeTab === 'words' ? '#ffffff' : 'var(--text-muted)',
+                border: activeTab === 'words' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.82rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
               }}
             >
-              <Type size={15} />
+              <Type size={15} color={activeTab === 'words' ? '#a5b4fc' : 'currentColor'} />
               <span>Words ({words.length})</span>
             </button>
           </div>
@@ -2067,30 +2132,82 @@ export default function StudioEditor({
                 <label style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '10px', display: 'block' }}>
                   Caption Style Preset
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   {[
-                    { id: 'hormozi', name: 'Alex Hormozi', desc: 'Bold uppercase, neon active word pop' },
-                    { id: 'mrbeast', name: 'MrBeast Style', desc: 'Impact font, high-contrast dark stroke' },
-                    { id: 'clean', name: 'Clean Modern', desc: 'Minimalist Inter with translucent pill' },
-                    { id: 'cyberpunk', name: 'Cyber Neon', desc: 'Futuristic cyan glow and drop shadow' }
+                    {
+                      id: 'hormozi',
+                      name: 'Alex Hormozi',
+                      desc: 'Bold uppercase, neon active word pop',
+                      preview: <>MAKE <span style={{ color: '#ffe600', textDecoration: 'underline' }}>MONEY</span> FAST</>
+                    },
+                    {
+                      id: 'mrbeast',
+                      name: 'MrBeast Style',
+                      desc: 'Impact font, high-contrast dark stroke',
+                      preview: <>WIN <span style={{ color: '#00ff66' }}>$50,000</span> TODAY</>
+                    },
+                    {
+                      id: 'clean',
+                      name: 'Clean Modern',
+                      desc: 'Minimalist Inter with translucent pill',
+                      preview: <>Focus on <span style={{ color: '#818cf8', fontWeight: 700 }}>growth</span></>
+                    },
+                    {
+                      id: 'cyberpunk',
+                      name: 'Cyber Neon',
+                      desc: 'Futuristic cyan glow and drop shadow',
+                      preview: <>FUTURE <span style={{ color: '#06b6d4', textShadow: '0 0 8px #06b6d4' }}>AI</span></>
+                    }
                   ].map(p => (
                     <div
                       key={p.id}
                       onClick={() => setStyle(p.id)}
                       style={{
-                        padding: '12px 14px',
+                        padding: '14px',
                         borderRadius: 'var(--radius-sm)',
-                        background: style === p.id ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                        border: style === p.id ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
+                        background: style === p.id ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255, 255, 255, 0.02)',
+                        border: style === p.id ? '1px solid #6366f1' : '1px solid var(--border-subtle)',
+                        boxShadow: style === p.id ? '0 0 16px rgba(99, 102, 241, 0.25)' : 'none',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#ffffff' }}>{p.name}</span>
-                        {style === p.id && <Check size={14} color="#818cf8" />}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>{p.name}</span>
+                        {style === p.id && (
+                          <div style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            background: '#6366f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <Check size={12} color="#ffffff" />
+                          </div>
+                        )}
                       </div>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>{p.desc}</span>
+
+                      {/* Visual Preview Pill */}
+                      <div style={{
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        textAlign: 'center',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.5px',
+                        marginBottom: '8px',
+                        color: '#ffffff',
+                        border: '1px solid rgba(255, 255, 255, 0.06)'
+                      }}>
+                        {p.preview}
+                      </div>
+
+                      <span style={{ fontSize: '0.73rem', color: 'var(--text-dim)', lineHeight: 1.3, display: 'block' }}>
+                        {p.desc}
+                      </span>
                     </div>
                   ))}
                 </div>
