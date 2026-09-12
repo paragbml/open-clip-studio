@@ -49,6 +49,8 @@ export default function StudioEditor({
   });
   const [speakerLeftPercent, setSpeakerLeftPercent] = useState(30.0);
   const [speakerRightPercent, setSpeakerRightPercent] = useState(70.0);
+  const [singleSpeakerFocusMode, setSingleSpeakerFocusMode] = useState('auto_pan'); // 'auto_pan' | 'primary' | 'left' | 'right' | 'center' | 'custom'
+  const [singleSpeakerFocusX, setSingleSpeakerFocusX] = useState(50.0);
   const [isTrackingLoading, setIsTrackingLoading] = useState(false);
   const [enableJumpCut, setEnableJumpCut] = useState(true);
   const [enableSfx, setEnableSfx] = useState(true);
@@ -190,6 +192,11 @@ export default function StudioEditor({
       .then(data => {
         if (isMounted) {
           setTrackingData(data);
+          if (data.primarySpeakerXPercent) {
+            setSingleSpeakerFocusX(data.primarySpeakerXPercent);
+          } else if (data.avgXPercent) {
+            setSingleSpeakerFocusX(data.avgXPercent);
+          }
           if (data.speakerLeftPercent) setSpeakerLeftPercent(data.speakerLeftPercent);
           if (data.speakerRightPercent) setSpeakerRightPercent(data.speakerRightPercent);
           setIsTrackingLoading(false);
@@ -223,10 +230,33 @@ export default function StudioEditor({
     return () => { isMounted = false; };
   }, [filePath, trimStart, clipDuration, words]);
 
+  // Exact mathematical conversion from video horizontal coordinate (0% - 100%)
+  // to CSS object-position percentage, ensuring subject is in the dead-center of the 9:16 phone mockup
+  const getCssObjectPosition = (xPercent) => {
+    const x = Math.max(0, Math.min(100, xPercent)) / 100;
+    // Container aspect: 9/16 = 0.5625. Video aspect (16/9): 1.77778
+    // R = (16/9) / (9/16) = 256 / 81 = 3.1604938
+    const R = 3.1604938;
+    const p = ((x * R - 0.5) / (R - 1)) * 100;
+    return Math.max(0, Math.min(100, p));
+  };
+
+  const getCssObjectPositionSplit = (xPercent) => {
+    const x = Math.max(0, Math.min(100, xPercent)) / 100;
+    // Split container aspect: 1080/960 = 1.125. Video aspect: 16/9 = 1.77778
+    // R = (16/9) / 1.125 = 1.580247
+    const R = 1.580247;
+    const p = ((x * R - 0.5) / (R - 1)) * 100;
+    return Math.max(0, Math.min(100, p));
+  };
+
   // Interpolate tracking X position
   const getCurrentTrackingX = () => {
+    if (singleSpeakerFocusMode !== 'auto_pan') {
+      return singleSpeakerFocusX;
+    }
     if (!trackingData || !trackingData.trajectory || trackingData.trajectory.length === 0) {
-      return trackingData?.avgXPercent || 50.0;
+      return singleSpeakerFocusX || trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50.0;
     }
     const t = videoRef.current ? videoRef.current.currentTime : currentTime;
     let closest = trackingData.trajectory[0];
@@ -444,10 +474,10 @@ export default function StudioEditor({
       duration: parseFloat((trimEnd - trimStart).toFixed(2)),
       aspectRatio,
       reframeMode,
-      targetXPercent: trackingData?.avgXPercent || 50.0,
+      targetXPercent: singleSpeakerFocusX || trackingData?.avgXPercent || 50.0,
       speakerLeftPercent: speakerLeftPercent || trackingData?.speakerLeftPercent || 28.0,
       speakerRightPercent: speakerRightPercent || trackingData?.speakerRightPercent || 68.0,
-      trajectory: trackingData?.trajectory || [],
+      trajectory: (singleSpeakerFocusMode === 'auto_pan' && reframeMode === 'smart_track') ? (trackingData?.trajectory || []) : [],
       sfxEvents: enableSfx && jumpCutData ? jumpCutData.sfxEvents : [],
       enableSpotlight,
       style,
@@ -626,7 +656,7 @@ export default function StudioEditor({
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        objectPosition: `${speakerLeftPercent}% center`,
+                        objectPosition: `${getCssObjectPositionSplit(speakerLeftPercent)}% center`,
                         cursor: 'pointer'
                       }}
                       onClick={togglePlay}
@@ -690,7 +720,7 @@ export default function StudioEditor({
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        objectPosition: `${speakerRightPercent}% center`,
+                        objectPosition: `${getCssObjectPositionSplit(speakerRightPercent)}% center`,
                         cursor: 'pointer'
                       }}
                       onClick={togglePlay}
@@ -750,7 +780,9 @@ export default function StudioEditor({
                       width: '100%',
                       height: '100%',
                       objectFit: (aspectRatio === '9:16' && (reframeMode === 'smart_track' || reframeMode === 'crop_center')) ? 'cover' : 'contain',
-                      objectPosition: (aspectRatio === '9:16' && reframeMode === 'smart_track') ? `${getCurrentTrackingX()}% center` : 'center center',
+                      objectPosition: (aspectRatio === '9:16' && reframeMode === 'smart_track')
+                        ? `${getCssObjectPosition(getCurrentTrackingX())}% center`
+                        : (reframeMode === 'crop_center' ? `${getCssObjectPosition(50)}% center` : 'center center'),
                       transform: isZoomedPunch ? 'scale(1.16) translate(1px, -2px)' : 'scale(1.0)',
                       transition: isZoomedPunch ? 'transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'transform 0.4s ease-out, object-position 0.25s ease-out',
                       zIndex: 2,
@@ -759,6 +791,30 @@ export default function StudioEditor({
                     }}
                     onClick={togglePlay}
                   />
+
+                  {/* Live Active Speaker Focus Badge for 9:16 Single Speaker */}
+                  {aspectRatio === '9:16' && reframeMode === 'smart_track' && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      left: '10px',
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      border: '1px solid rgba(6, 182, 212, 0.5)',
+                      color: '#06b6d4',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      pointerEvents: 'none',
+                      zIndex: 5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <Crosshair size={11} />
+                      <span>{singleSpeakerFocusMode === 'auto_pan' ? 'AI AUTO-PAN' : `FOCUS: ${Math.round(singleSpeakerFocusX)}%`}</span>
+                    </div>
+                  )}
 
                   {/* Optional Subtle Spotlight (Disabled by default so video is bright & crisp) */}
                   {aspectRatio === '9:16' && enableSpotlight && (
@@ -1342,6 +1398,169 @@ export default function StudioEditor({
                     <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
                       Full-bleed vertical crop without letterboxing. Auto-pans smoothly to follow the primary speaker across the frame.
                     </div>
+
+                    {reframeMode === 'smart_track' && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          marginTop: '12px',
+                          padding: '12px',
+                          background: 'rgba(15, 23, 42, 0.85)',
+                          border: '1px solid rgba(6, 182, 212, 0.35)',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e7ff' }}>
+                            🎯 Speaker Focus & Camera Pan
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: '#06b6d4', fontWeight: 600 }}>
+                            {singleSpeakerFocusMode === 'auto_pan' ? 'AI Auto-Follow' : `Locked at ${Math.round(singleSpeakerFocusX)}%`}
+                          </span>
+                        </div>
+
+                        {/* Focus Targets */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                            FOCUS TARGET:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setSingleSpeakerFocusMode('auto_pan')}
+                              style={{
+                                padding: '5px 9px',
+                                fontSize: '0.72rem',
+                                borderRadius: '4px',
+                                background: singleSpeakerFocusMode === 'auto_pan' ? '#0891b2' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Crosshair size={12} />
+                              <span>AI Auto-Pan (Continuous)</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSingleSpeakerFocusMode('primary');
+                                setSingleSpeakerFocusX(trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50.0);
+                              }}
+                              style={{
+                                padding: '5px 9px',
+                                fontSize: '0.72rem',
+                                borderRadius: '4px',
+                                background: singleSpeakerFocusMode === 'primary' ? '#0891b2' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              Primary Speaker ({Math.round(trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50)}%)
+                            </button>
+                            {trackingData?.speakerLeftPercent && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSingleSpeakerFocusMode('left');
+                                  setSingleSpeakerFocusX(trackingData.speakerLeftPercent);
+                                }}
+                                style={{
+                                  padding: '5px 9px',
+                                  fontSize: '0.72rem',
+                                  borderRadius: '4px',
+                                  background: singleSpeakerFocusMode === 'left' ? '#0891b2' : 'rgba(255, 255, 255, 0.08)',
+                                  color: '#ffffff',
+                                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                Host / Left ({Math.round(trackingData.speakerLeftPercent)}%)
+                              </button>
+                            )}
+                            {trackingData?.speakerRightPercent && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSingleSpeakerFocusMode('right');
+                                  setSingleSpeakerFocusX(trackingData.speakerRightPercent);
+                                }}
+                                style={{
+                                  padding: '5px 9px',
+                                  fontSize: '0.72rem',
+                                  borderRadius: '4px',
+                                  background: singleSpeakerFocusMode === 'right' ? '#0891b2' : 'rgba(255, 255, 255, 0.08)',
+                                  color: '#ffffff',
+                                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                Guest / Right ({Math.round(trackingData.speakerRightPercent)}%)
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSingleSpeakerFocusMode('center');
+                                setSingleSpeakerFocusX(50.0);
+                              }}
+                              style={{
+                                padding: '5px 9px',
+                                fontSize: '0.72rem',
+                                borderRadius: '4px',
+                                background: singleSpeakerFocusMode === 'center' ? '#0891b2' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              Center (50%)
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Fine-Tuning Slider */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px', color: '#c7d2fe' }}>
+                            <span>Camera Center Position:</span>
+                            <strong style={{ color: '#06b6d4' }}>{Math.round(singleSpeakerFocusX)}%</strong>
+                          </div>
+                          <input
+                            type="range"
+                            min="15"
+                            max="85"
+                            step="1"
+                            value={singleSpeakerFocusX}
+                            onChange={(e) => {
+                              setSingleSpeakerFocusX(parseFloat(e.target.value));
+                              setSingleSpeakerFocusMode('custom');
+                            }}
+                            style={{
+                              width: '100%',
+                              accentColor: '#06b6d4',
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                            <span>Left (15%)</span>
+                            <span>Center (50%)</span>
+                            <span>Right (85%)</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Option 3: Center Speaker Crop */}
