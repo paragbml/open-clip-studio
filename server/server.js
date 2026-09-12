@@ -364,6 +364,7 @@ app.post('/api/render-clip', async (req, res) => {
     targetXPercent = 50.0,
     speakerLeftPercent = 30.0,
     speakerRightPercent = 70.0,
+    trajectory = [],
     sfxEvents = [],
     style = 'hormozi',
     fontSize = 58,
@@ -415,6 +416,7 @@ app.post('/api/render-clip', async (req, res) => {
       targetXPercent,
       speakerLeftPercent,
       speakerRightPercent,
+      trajectory,
       sfxEvents,
       subtitlesAssPath: assPath,
       enableSpotlight

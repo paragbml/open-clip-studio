@@ -85,17 +85,20 @@ function calculateJumpCuts(words = [], clipStart = 0, clipEnd = 30, silenceThres
 
   // Generate Streamer Meme SFX Cues
   const sfxEvents = [];
-  let elapsedInCut = 0;
-
-  // 1. Whoosh transition on jump cuts
+  // 1. Scene transition cue: at most ONE whoosh on a major pause (>1.2s) to avoid sound spam
+  let accumTime = 0;
   for (let i = 1; i < segments.length; i++) {
-    elapsedInCut += segments[i - 1].duration;
-    sfxEvents.push({
-      type: 'whoosh',
-      time: parseFloat(elapsedInCut.toFixed(2)),
-      label: '💨 Fast Air Whoosh',
-      trigger: 'Jump-Cut Transition'
-    });
+    accumTime += segments[i - 1].duration;
+    const gap = segments[i].start - segments[i - 1].end;
+    if (gap > 1.2 && accumTime > 8.0 && !sfxEvents.some(e => e.type === 'whoosh')) {
+      sfxEvents.push({
+        type: 'whoosh',
+        time: parseFloat(accumTime.toFixed(2)),
+        label: '💨 Scene Shift',
+        trigger: 'Major Topic Shift'
+      });
+      break;
+    }
   }
 
   // 2. High-energy keywords detection

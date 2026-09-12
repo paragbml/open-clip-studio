@@ -225,6 +225,45 @@ function trackSubject(videoPath, startTime, duration) {
 }
 
 /**
+ * Builds a smooth time-continuous piecewise linear camera pan expression for FFmpeg
+ */
+function generateDynamicCropExpression(trajectory, defaultXPercent = 50.0) {
+  if (!trajectory || trajectory.length < 2) {
+    const xFrac = Math.max(0.18, Math.min(0.82, (defaultXPercent || 50.0) / 100)).toFixed(3);
+    return `min(max(0\\,in_w*${xFrac}-540)\\,in_w-1080)`;
+  }
+
+  // Downsample to significant keyframes (every ~1.5s or significant motion delta)
+  const keyframes = [trajectory[0]];
+  for (let i = 1; i < trajectory.length; i++) {
+    const curr = trajectory[i];
+    const prev = keyframes[keyframes.length - 1];
+    const timeDiff = curr.t - prev.t;
+    const deltaX = Math.abs(curr.x - prev.x);
+    if (deltaX >= 0.04 || timeDiff >= 2.0 || i === trajectory.length - 1) {
+      keyframes.push(curr);
+    }
+  }
+
+  if (keyframes.length <= 1) {
+    const xFrac = Math.max(0.18, Math.min(0.82, keyframes[0].x)).toFixed(3);
+    return `min(max(0\\,in_w*${xFrac}-540)\\,in_w-1080)`;
+  }
+
+  // Build nested linear interpolation: if(lt(t, t1), lerp(x0, x1), if(lt(t, t2), ...))
+  let expr = `${keyframes[keyframes.length - 1].x.toFixed(3)}`;
+  for (let i = keyframes.length - 2; i >= 0; i--) {
+    const k0 = keyframes[i];
+    const k1 = keyframes[i + 1];
+    const dt = Math.max(0.1, k1.t - k0.t).toFixed(2);
+    const lerp = `(${k0.x.toFixed(3)}+(${k1.x.toFixed(3)}-${k0.x.toFixed(3)})*(t-${k0.t.toFixed(2)})/${dt})`;
+    expr = `if(lt(t\\,${k1.t.toFixed(2)})\\,${lerp}\\,${expr})`;
+  }
+
+  return `min(max(0\\,(${expr})*in_w-540)\\,in_w-1080)`;
+}
+
+/**
  * Renders short vertical clip with auto-reframing, AI subject tracking, burned subtitles, and streamer SFX
  */
 function renderShortClip({
@@ -237,6 +276,7 @@ function renderShortClip({
   targetXPercent = 50.0,
   speakerLeftPercent = 30.0,
   speakerRightPercent = 70.0,
+  trajectory = [],
   subtitlesAssPath = null,
   sfxEvents = [],
   enableSpotlight = false,
@@ -267,28 +307,37 @@ function renderShortClip({
     if (aspectRatio === '9:16') {
       if (reframeMode === 'split_stacked') {
         // Opus Clip signature Dual-Speaker Split-Screen (Stacked Top & Bottom)
-        const leftFrac = Math.max(0.18, Math.min(0.82, (speakerLeftPercent || 30.0) / 100)).toFixed(3);
-        const rightFrac = Math.max(0.18, Math.min(0.82, (speakerRightPercent || 70.0) / 100)).toFixed(3);
+        const leftFrac = Math.max(0.12, Math.min(0.88, (speakerLeftPercent || 30.0) / 100)).toFixed(3);
+        const rightFrac = Math.max(0.12, Math.min(0.88, (speakerRightPercent || 70.0) / 100)).toFixed(3);
         const cropTop = `min(max(0\\,in_w*${leftFrac}-540)\\,in_w-1080)`;
         const cropBot = `min(max(0\\,in_w*${rightFrac}-540)\\,in_w-1080)`;
 
         const divider = ',drawbox=x=0:y=958:w=1080:h=4:color=#6366f1:t=fill';
         if (subtitlesAssPath && fs.existsSync(subtitlesAssPath)) {
           const escapedSubPath = subtitlesAssPath.replace(/'/g, "'\\''").replace(/:/g, '\\:');
-          videoFilter = `[0:v]scale=-1:960,crop=1080:960:${cropTop}:0[top];[0:v]scale=-1:960,crop=1080:960:${cropBot}:0[bot];[top][bot]vstack${divider}${spotFilter}[base];[base]ass='${escapedSubPath}'[outv]`;
+          videoFilter = `[0:v]scale=-2:960,split=2[s1][s2];[s1]crop=1080:960:${cropTop}:0[top];[s2]crop=1080:960:${cropBot}:0[bot];[top][bot]vstack${divider}${spotFilter}[base];[base]ass='${escapedSubPath}'[outv]`;
         } else {
-          videoFilter = `[0:v]scale=-1:960,crop=1080:960:${cropTop}:0[top];[0:v]scale=-1:960,crop=1080:960:${cropBot}:0[bot];[top][bot]vstack${divider}${spotFilter}[outv]`;
+          videoFilter = `[0:v]scale=-2:960,split=2[s1][s2];[s1]crop=1080:960:${cropTop}:0[top];[s2]crop=1080:960:${cropBot}:0[bot];[top][bot]vstack${divider}${spotFilter}[outv]`;
         }
-      } else if (reframeMode === 'smart_track' || reframeMode === 'crop_center') {
-        // Full-bleed 9:16 phone crop centered on the tracked speaker
+      } else if (reframeMode === 'smart_track') {
+        // Dynamic continuous AI camera pan following moving speaker
+        const dynamicCropExp = generateDynamicCropExpression(trajectory, targetXPercent);
+        
+        if (subtitlesAssPath && fs.existsSync(subtitlesAssPath)) {
+          const escapedSubPath = subtitlesAssPath.replace(/'/g, "'\\''").replace(/:/g, '\\:');
+          videoFilter = `[0:v]scale=-2:1920,crop=1080:1920:${dynamicCropExp}:0${spotFilter}[base];[base]ass='${escapedSubPath}'[outv]`;
+        } else {
+          videoFilter = `[0:v]scale=-2:1920,crop=1080:1920:${dynamicCropExp}:0${spotFilter}[outv]`;
+        }
+      } else if (reframeMode === 'crop_center') {
         const xFrac = Math.max(0.18, Math.min(0.82, (targetXPercent || 50.0) / 100)).toFixed(3);
         const cropExp = `min(max(0\\,in_w*${xFrac}-540)\\,in_w-1080)`;
         
         if (subtitlesAssPath && fs.existsSync(subtitlesAssPath)) {
           const escapedSubPath = subtitlesAssPath.replace(/'/g, "'\\''").replace(/:/g, '\\:');
-          videoFilter = `[0:v]scale=-1:1920,crop=1080:1920:${cropExp}:0${spotFilter}[base];[base]ass='${escapedSubPath}'[outv]`;
+          videoFilter = `[0:v]scale=-2:1920,crop=1080:1920:${cropExp}:0${spotFilter}[base];[base]ass='${escapedSubPath}'[outv]`;
         } else {
-          videoFilter = `[0:v]scale=-1:1920,crop=1080:1920:${cropExp}:0${spotFilter}[outv]`;
+          videoFilter = `[0:v]scale=-2:1920,crop=1080:1920:${cropExp}:0${spotFilter}[outv]`;
         }
       } else if (reframeMode === 'blur_fill') {
         // Optimized frosted blur fill (10x faster downscaled blur)

@@ -47,6 +47,8 @@ export default function StudioEditor({
     speakerRightPercent: 70.0,
     trajectory: []
   });
+  const [speakerLeftPercent, setSpeakerLeftPercent] = useState(30.0);
+  const [speakerRightPercent, setSpeakerRightPercent] = useState(70.0);
   const [isTrackingLoading, setIsTrackingLoading] = useState(false);
   const [enableJumpCut, setEnableJumpCut] = useState(true);
   const [enableSfx, setEnableSfx] = useState(true);
@@ -188,10 +190,12 @@ export default function StudioEditor({
       .then(data => {
         if (isMounted) {
           setTrackingData(data);
+          if (data.speakerLeftPercent) setSpeakerLeftPercent(data.speakerLeftPercent);
+          if (data.speakerRightPercent) setSpeakerRightPercent(data.speakerRightPercent);
           setIsTrackingLoading(false);
           // If video has two distinct speakers and user hasn't chosen yet, auto-suggest split_stacked!
           if (data.hasTwoSpeakers && reframeMode === 'smart_track') {
-            // keep smart_track as option, but data has both speaker positions ready!
+            setReframeMode('split_stacked');
           }
         }
       })
@@ -317,7 +321,6 @@ export default function StudioEditor({
           if (vTime >= segEndRel && vTime < nextSegStartRel) {
             video.currentTime = nextSegStartRel;
             if (bgVideoRef.current) bgVideoRef.current.currentTime = nextSegStartRel;
-            if (enableSfx) playSfx('whoosh');
             triggerSfxBadge('⚡ JUMP CUT');
             break;
           }
@@ -442,8 +445,9 @@ export default function StudioEditor({
       aspectRatio,
       reframeMode,
       targetXPercent: trackingData?.avgXPercent || 50.0,
-      speakerLeftPercent: trackingData?.speakerLeftPercent || 28.0,
-      speakerRightPercent: trackingData?.speakerRightPercent || 68.0,
+      speakerLeftPercent: speakerLeftPercent || trackingData?.speakerLeftPercent || 28.0,
+      speakerRightPercent: speakerRightPercent || trackingData?.speakerRightPercent || 68.0,
+      trajectory: trackingData?.trajectory || [],
       sfxEvents: enableSfx && jumpCutData ? jumpCutData.sfxEvents : [],
       enableSpotlight,
       style,
@@ -622,7 +626,7 @@ export default function StudioEditor({
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        objectPosition: `${trackingData.speakerLeftPercent || 28}% center`,
+                        objectPosition: `${speakerLeftPercent}% center`,
                         cursor: 'pointer'
                       }}
                       onClick={togglePlay}
@@ -686,7 +690,7 @@ export default function StudioEditor({
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        objectPosition: `${trackingData.speakerRightPercent || 68}% center`,
+                        objectPosition: `${speakerRightPercent}% center`,
                         cursor: 'pointer'
                       }}
                       onClick={togglePlay}
@@ -1154,20 +1158,165 @@ export default function StudioEditor({
                     <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)', lineHeight: 1.4 }}>
                       Splits the 9:16 phone vertically into two stacked frames: Speaker 1 on top, Speaker 2 on bottom. Perfect for interviews, conversations, and podcasts!
                     </div>
-                    <div style={{
-                      marginTop: '10px',
-                      padding: '8px 12px',
-                      background: 'rgba(0, 0, 0, 0.35)',
-                      borderRadius: '6px',
-                      fontSize: '0.74rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      color: '#a5b4fc'
-                    }}>
-                      <span>Top Speaker: <strong>{trackingData.speakerLeftPercent || 28}%</strong></span>
-                      <span>Bottom Speaker: <strong>{trackingData.speakerRightPercent || 68}%</strong></span>
-                    </div>
+                    {reframeMode === 'split_stacked' ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          marginTop: '12px',
+                          padding: '12px',
+                          background: 'rgba(15, 23, 42, 0.85)',
+                          border: '1px solid rgba(129, 140, 248, 0.35)',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e0e7ff' }}>
+                            🎯 Dual Speaker Framing Adjuster
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: '#818cf8', fontWeight: 600 }}>
+                            Live Preview Enabled
+                          </span>
+                        </div>
+
+                        {/* Top Speaker Slider */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px', color: '#c7d2fe' }}>
+                            <span>Top Speaker (Host / Left):</span>
+                            <strong style={{ color: '#38bdf8' }}>{Math.round(speakerLeftPercent)}%</strong>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="90"
+                            step="1"
+                            value={speakerLeftPercent}
+                            onChange={(e) => setSpeakerLeftPercent(parseFloat(e.target.value))}
+                            style={{
+                              width: '100%',
+                              accentColor: '#38bdf8',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </div>
+
+                        {/* Bottom Speaker Slider */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '4px', color: '#c7d2fe' }}>
+                            <span>Bottom Speaker (Guest / Right):</span>
+                            <strong style={{ color: '#818cf8' }}>{Math.round(speakerRightPercent)}%</strong>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="90"
+                            step="1"
+                            value={speakerRightPercent}
+                            onChange={(e) => setSpeakerRightPercent(parseFloat(e.target.value))}
+                            style={{
+                              width: '100%',
+                              accentColor: '#818cf8',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        </div>
+
+                        {/* Framing Presets */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                            QUICK PRESETS:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => { setSpeakerLeftPercent(30.0); setSpeakerRightPercent(70.0); }}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.7rem',
+                                borderRadius: '4px',
+                                background: (Math.round(speakerLeftPercent) === 30 && Math.round(speakerRightPercent) === 70) ? '#6366f1' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              Standard (30% / 70%)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setSpeakerLeftPercent(22.0); setSpeakerRightPercent(78.0); }}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.7rem',
+                                borderRadius: '4px',
+                                background: (Math.round(speakerLeftPercent) === 22 && Math.round(speakerRightPercent) === 78) ? '#6366f1' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              Wide Studio (22% / 78%)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setSpeakerLeftPercent(38.0); setSpeakerRightPercent(62.0); }}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.7rem',
+                                borderRadius: '4px',
+                                background: (Math.round(speakerLeftPercent) === 38 && Math.round(speakerRightPercent) === 62) ? '#6366f1' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                              }}
+                            >
+                              Close Dialogue (38% / 62%)
+                            </button>
+                            {trackingData?.speakerLeftPercent && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSpeakerLeftPercent(trackingData.speakerLeftPercent);
+                                  setSpeakerRightPercent(trackingData.speakerRightPercent);
+                                }}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '0.7rem',
+                                  borderRadius: '4px',
+                                  background: (Math.round(speakerLeftPercent) === Math.round(trackingData.speakerLeftPercent) && Math.round(speakerRightPercent) === Math.round(trackingData.speakerRightPercent)) ? '#059669' : 'rgba(16, 185, 129, 0.15)',
+                                  color: '#34d399',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                AI Detect ({Math.round(trackingData.speakerLeftPercent)}% / {Math.round(trackingData.speakerRightPercent)}%)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{
+                        marginTop: '10px',
+                        padding: '8px 12px',
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        color: '#a5b4fc'
+                      }}>
+                        <span>Top Speaker: <strong>{Math.round(speakerLeftPercent)}%</strong></span>
+                        <span>Bottom Speaker: <strong>{Math.round(speakerRightPercent)}%</strong></span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Option 2: Smart Single Speaker (Auto-Pan) */}

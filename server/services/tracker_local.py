@@ -50,6 +50,7 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
 
     smoothed_x = 0.5
     raw_positions = []
+    all_detected_centers = []
     left_positions = []
     right_positions = []
     dual_frames_count = 0
@@ -81,22 +82,30 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
             sorted_indices = valid_indices[np.argsort(-areas)]
             best_idx = sorted_indices[0]
             cx = float(preds[0, best_idx])
-            if 0.0 <= cx <= 1.0:
-                target_x = cx
+            if 0.05 <= cx <= 0.95:
+                # Deadband stabilization: ignore micro-jitter below 3.5%
+                if abs(cx - smoothed_x) > 0.035:
+                    target_x = cx
+                else:
+                    target_x = smoothed_x
+                all_detected_centers.append(cx)
 
-            # Dual-speaker check: if two distinct people are detected
+            # Dual-speaker simultaneous detection
             if len(sorted_indices) >= 2:
                 p1_x = float(preds[0, sorted_indices[0]])
                 p2_x = float(preds[0, sorted_indices[1]])
-                if abs(p1_x - p2_x) > 0.14:
-                    dual_frames_count += 1
-                    left_x = min(p1_x, p2_x)
-                    right_x = max(p1_x, p2_x)
-                    left_positions.append(left_x)
-                    right_positions.append(right_x)
+                if 0.05 <= p1_x <= 0.95 and 0.05 <= p2_x <= 0.95:
+                    all_detected_centers.append(p2_x)
+                    if abs(p1_x - p2_x) > 0.14:
+                        dual_frames_count += 1
+                        left_x = min(p1_x, p2_x)
+                        right_x = max(p1_x, p2_x)
+                        left_positions.append(left_x)
+                        right_positions.append(right_x)
 
-        smoothed_x = 0.75 * smoothed_x + 0.25 * target_x
-        clamped_x = max(0.20, min(0.80, smoothed_x))
+        # Smooth camera movement with momentum
+        smoothed_x = 0.70 * smoothed_x + 0.30 * target_x
+        clamped_x = max(0.18, min(0.82, smoothed_x))
 
         raw_positions.append(clamped_x)
         trajectory.append({
@@ -110,16 +119,37 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
     proc.wait()
 
     avg_x = float(np.mean(raw_positions)) if raw_positions else 0.5
-    has_two_speakers = dual_frames_count >= max(2, len(trajectory) * 0.2)
-    avg_left = float(np.mean(left_positions)) if left_positions else max(0.22, avg_x - 0.22)
-    avg_right = float(np.mean(right_positions)) if right_positions else min(0.78, avg_x + 0.22)
+
+    # Cross-cut podcast/interview dual speaker clustering:
+    # Identifies distinct host (left) and guest (right) positions even across camera angle switches
+    left_cluster = [x for x in all_detected_centers if x < 0.48]
+    right_cluster = [x for x in all_detected_centers if x > 0.52]
+
+    has_two_speakers = (
+        dual_frames_count >= max(2, len(trajectory) * 0.15) or
+        (len(left_cluster) >= 3 and len(right_cluster) >= 3 and (np.mean(right_cluster) - np.mean(left_cluster)) >= 0.18)
+    )
+
+    if left_positions:
+        avg_left = float(np.mean(left_positions))
+    elif left_cluster:
+        avg_left = float(np.mean(left_cluster))
+    else:
+        avg_left = max(0.20, avg_x - 0.22)
+
+    if right_positions:
+        avg_right = float(np.mean(right_positions))
+    elif right_cluster:
+        avg_right = float(np.mean(right_cluster))
+    else:
+        avg_right = min(0.80, avg_x + 0.22)
 
     return {
         "duration": duration,
         "sampleCount": len(trajectory),
         "avgX": round(avg_x, 3),
         "avgXPercent": round(avg_x * 100, 1),
-        "hasTwoSpeakers": has_two_speakers,
+        "hasTwoSpeakers": bool(has_two_speakers),
         "speakerLeftPercent": round(avg_left * 100, 1),
         "speakerRightPercent": round(avg_right * 100, 1),
         "trajectory": trajectory
