@@ -156,6 +156,8 @@ function extractAudio(videoPath, audioOutputPath) {
   return new Promise((resolve, reject) => {
     const args = [
       '-y',
+      '-threads', '4',
+      '-loglevel', 'warning',
       '-i', videoPath,
       '-vn',
       '-ar', '16000',

@@ -107,7 +107,8 @@ export default function App() {
     return data;
   };
 
-  const [scanMode, setScanMode] = useState('lightning'); // 'lightning' (first 10m, ~45s) | 'full' (all, slower on CPU)
+  const [scanMode, setScanMode] = useState('lightning');
+  const [enableHookScan, setEnableHookScan] = useState(true);
 
   // 1. Process Video Pipeline
   const runProcessingPipeline = async (filePath, vttPath = null, videoUrl = null) => {
@@ -130,7 +131,8 @@ export default function App() {
           vttPath,
           geminiApiKey: apiKeys.geminiApiKey,
           groqApiKey: apiKeys.groqApiKey,
-          scanMode
+          scanMode,
+          enableHookScan
         })
       });
 
@@ -266,6 +268,8 @@ export default function App() {
             onDownloadUrl={handleDownloadUrl}
             scanMode={scanMode}
             onScanModeChange={setScanMode}
+            enableHookScan={enableHookScan}
+            onEnableHookScanChange={setEnableHookScan}
             isLoading={false}
           />
         )}

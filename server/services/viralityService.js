@@ -27,6 +27,7 @@ const BANTER_PHRASES = [
   'can you hold this', 'where are we going', 'let me grab', 'check check check',
   'can i rely', '200 followers', 'test test'
 ];
+
 // Load custom hook phrases from config
 const HOOK_PHRASES_PATH = path.join(__dirname, '..', 'config', 'hookPhrases.json');
 let hookPhrases = [];
@@ -38,44 +39,42 @@ try {
   hookPhrases = [];
 }
 
-/**
- * Generate a hook using local LLM endpoint.
- * Returns a Promise<string> that resolves to a short hook phrase.
- */
-function generateHookAsync() {
-  return new Promise((resolve) => {
-    const postData = JSON.stringify({
-      prompt: 'Generate a short, catchy hook phrase (3-6 words) for a viral short video.',
-      max_tokens: 12
-    });
-    const options = {
-      hostname: 'localhost',
-      port: 8000,
-      path: '/generate',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed.hook || parsed.text || 'Did you know?');
-        } catch {
-          resolve('Did you know?');
-        }
-      });
-    });
-    req.on('error', () => resolve('Did you know?'));
-    req.write(postData);
-    req.end();
-  });
-}
+// ─── Engagement & Emotion word banks ────────────────────────────────────────
 
+const EMOTION_WORDS = {
+  surprise:   new Set(['wow', 'whoa', 'omg', 'insane', 'crazy', 'unbelievable', 'incredible', 'no way', 'what', 'seriously', 'really', 'shocking', 'mind-blowing']),
+  humor:      new Set(['funny', 'hilarious', 'lol', 'laugh', 'laughing', 'joke', 'joking', 'haha', 'lmao', 'comedy', 'bro', 'bruh', 'dawg']),
+  conflict:   new Set(['wrong', 'disagree', 'argue', 'fight', 'versus', 'debate', 'no', 'but', 'however', 'actually', 'false', 'lie', 'liar', 'foolish', 'stupid', 'nonsense']),
+  empathy:    new Set(['love', 'heart', 'feel', 'feeling', 'cry', 'crying', 'emotional', 'sad', 'beautiful', 'kind', 'care', 'caring', 'peace', 'forgive']),
+  authority:  new Set(['research', 'study', 'studies', 'scientist', 'professor', 'expert', 'data', 'proven', 'evidence', 'fact', 'facts', 'statistics', 'according']),
+  curiosity:  new Set(['secret', 'hidden', 'nobody', 'unknown', 'mystery', 'discover', 'reveal', 'truth', 'untold', 'expose', 'behind', 'real']),
+  urgency:    new Set(['now', 'today', 'immediately', 'stop', 'must', 'need', 'urgent', 'critical', 'important', 'warning', 'danger', 'quickly']),
+  positive:   new Set(['great', 'awesome', 'amazing', 'love', 'win', 'wonderful', 'fantastic', 'perfect', 'brilliant', 'excellent', 'best']),
+  negative:   new Set(['bad', 'hate', 'boring', 'terrible', 'pain', 'failure', 'worst', 'awful', 'horrible', 'disgusting'])
+};
+
+// Hook opening patterns ranked by viral potential
+const HOOK_PATTERNS = [
+  { regex: /^(wait|hold on|stop|listen|okay so|so basically|here's the thing|let me tell you)/i, type: 'Attention Grabber', boost: 22 },
+  { regex: /^(can you explain|what does|what do you|what are you|why do|what happened|how do you|tell me|who are you|what is)/i, type: 'Intense Question', boost: 20 },
+  { regex: /^(i think|in my opinion|my concern|honestly|to be honest|the truth is|the problem is)/i, type: 'Hot Take', boost: 18 },
+  { regex: /^(so i was|when i was|years ago|back when|i remember|i used to|one time|one day)/i, type: 'Storytelling', boost: 17 },
+  { regex: /\?/, type: 'Question Hook', boost: 15 },
+  { regex: /^(you know what|people don't realize|nobody talks about|most people|everyone thinks)/i, type: 'Contrarian Take', boost: 19 },
+  { regex: /^(imagine|picture this|think about|what if|have you ever)/i, type: 'Imagination Hook', boost: 16 },
+  { regex: /\b(died|killed|attacked|arrested|shot|stabbed|punched|pushed)\b/i, type: 'Dramatic Event', boost: 18 },
+  { regex: /\b(million|billion|thousand|percent|hundred)\b/i, type: 'Stat-Based Hook', boost: 14 }
+];
+
+// Conclusive payoff patterns
+const PAYOFF_PATTERNS = [
+  { regex: /\b(that's why|that's the reason|and that's|so yeah|at the end of the day|bottom line|the point is)\b/i, boost: 14 },
+  { regex: /\b(believe|peace|solution|forever|love|amen|god bless|thank you|exactly|period)\b/i, boost: 10 },
+  { regex: /[.!]$/, boost: 6 },
+  { regex: /\?$/, boost: 4 }
+];
+
+// ─── Utility Functions ──────────────────────────────────────────────────────
 
 function toTitleCase(str) {
   return str.replace(/\w\S*/g, (txt) => {
@@ -95,19 +94,15 @@ function extractKeywords(words, count = 4) {
       freq[clean] = (freq[clean] || 0) + 1;
     }
   });
-
   return Object.keys(freq)
     .sort((a, b) => freq[b] - freq[a])
     .slice(0, count);
 }
 
-/**
- * Intelligent Sentence & Thought Boundary Parser
- * Groups spoken words into complete grammatical thoughts.
- */
+// ─── Sentence Boundary Detection ────────────────────────────────────────────
+
 function groupWordsIntoSentences(words) {
   if (!words || words.length === 0) return [];
-
   const sentences = [];
   let currentSentence = [];
 
@@ -120,16 +115,12 @@ function groupWordsIntoSentences(words) {
     const hasPunctuation = /[.?!]$/.test(rawWord);
     const isNextWordValid = i < words.length - 1;
     const pauseAfter = isNextWordValid ? (words[i + 1].start - w.end) : 0;
-
     const isDangling = DANGLING_WORDS.has(clean);
     const isNaturalThoughtBoundary = pauseAfter > 0.85 && !isDangling && currentSentence.length >= 4;
 
     if (hasPunctuation || isNaturalThoughtBoundary || i === words.length - 1) {
       if (currentSentence.length > 0) {
-        if (isDangling && i < words.length - 1 && currentSentence.length < 24) {
-          continue;
-        }
-
+        if (isDangling && i < words.length - 1 && currentSentence.length < 24) continue;
         sentences.push({
           start: currentSentence[0].start,
           end: currentSentence[currentSentence.length - 1].end,
@@ -153,266 +144,389 @@ function groupWordsIntoSentences(words) {
       lastWordClean: cleanWord(currentSentence[currentSentence.length - 1].word)
     });
   }
-
   return sentences;
 }
 
+// ─── Advanced Scoring Helpers ───────────────────────────────────────────────
+
 /**
- * High-Meaning Viral Clip Finder
- * Strictly targets 30s - 42s self-contained narrative clips.
- * Filters out mic checks/streamer small talk and prioritizes dialogue, debates, and story arcs.
+ * Measures emotional intensity across a word sequence.
+ * Returns { totalScore, dominantEmotion, emotionBreakdown }
  */
-function analyzeClipsDynamically(words, fullText, videoDuration) {
-  // Helper: simple sentiment word lists for quick scoring
-  const POSITIVE_WORDS = new Set(['great', 'awesome', 'amazing', 'love', 'funny', 'win', 'winwin', 'awesome', 'wow', 'hilarious', 'laugh']);
-  const NEGATIVE_WORDS = new Set(['bad', 'sad', 'hate', 'boring', 'terrible', 'pain', 'failure', 'danger', 'problem']);
-  // Helper: compute an engagement boost based on pauses and speaker turns
-  function computeEngagementBoost(segWords) {
-    let boost = 0;
-    // Longer pauses (>0.8s) indicate emphasis
-    for (let i = 0; i < segWords.length - 1; i++) {
-      const pause = segWords[i + 1].start - segWords[i].end;
-      if (pause > 0.8) boost += 2;
-    }
-    // Speaker turn changes (detect by presence of typical address words)
-    const turnWords = ['you', 'i', 'we', 'they', 'he', 'she'];
-    const turns = segWords.filter(w => turnWords.includes(w.word.toLowerCase())).length;
-    boost += Math.min(turns, 5);
-    return boost;
-  }
-  // Helper: sentiment score for a segment
-  function sentimentScore(segWords) {
-    let score = 0;
+function scoreEmotionalIntensity(segWords) {
+  const breakdown = {};
+  let total = 0;
+  for (const category of Object.keys(EMOTION_WORDS)) {
+    let count = 0;
     for (const w of segWords) {
-      const lw = w.word.toLowerCase();
-      if (POSITIVE_WORDS.has(lw)) score += 2;
-      if (NEGATIVE_WORDS.has(lw)) score -= 2;
+      if (EMOTION_WORDS[category].has(cleanWord(w.word))) count++;
     }
-    return score;
+    if (count > 0) {
+      const weight = category === 'conflict' || category === 'surprise' ? 3 : category === 'humor' ? 4 : 2;
+      const catScore = count * weight;
+      breakdown[category] = catScore;
+      total += catScore;
+    }
   }
-  // Helper: expand a clip to include preceding/following sentences for context while staying within limits
-  function expandClipContext(startIdx, endIdx, sentences, minDur, maxDur) {
-    let start = startIdx, end = endIdx;
-    // Try to include one preceding sentence if it improves hook quality
-    if (start > 0) {
-      const prev = sentences[start - 1];
-      const newDur = sentences[end].end - prev.start;
-      if (newDur >= minDur && newDur <= maxDur) start--;
+  const dominant = Object.entries(breakdown).sort((a, b) => b[1] - a[1])[0];
+  return { totalScore: Math.min(total, 20), dominantEmotion: dominant ? dominant[0] : null, breakdown };
+}
+
+/**
+ * Detects conversational turn-taking.
+ * Looks for pronoun alternation patterns (I→you→I) and question-answer flows.
+ */
+function scoreTurnTaking(segWords, sentences, startIdx, endIdx) {
+  let turns = 0;
+  let hasQA = false;
+  let lastPronounGroup = null;
+
+  for (const w of segWords) {
+    const lw = cleanWord(w.word);
+    let group = null;
+    if (['i', 'me', 'my', 'mine', 'myself'].includes(lw)) group = 'self';
+    else if (['you', 'your', 'yours', 'yourself'].includes(lw)) group = 'other';
+
+    if (group && group !== lastPronounGroup) {
+      if (lastPronounGroup) turns++;
+      lastPronounGroup = group;
     }
-    // Try to include one following sentence if it provides payoff
-    if (end < sentences.length - 1) {
-      const next = sentences[end + 1];
-      const newDur = next.end - sentences[start].start;
-      if (newDur >= minDur && newDur <= maxDur) end++;
-    }
-    return { startIdx: start, endIdx: end };
   }
+
+  // Q&A detection: is there a question mark followed by a non-question sentence?
+  for (let s = startIdx; s < endIdx; s++) {
+    if (sentences[s].text.includes('?') && s + 1 <= endIdx && !sentences[s + 1].text.includes('?')) {
+      hasQA = true;
+      break;
+    }
+  }
+
+  return { turnScore: Math.min(turns * 2, 12), hasQA };
+}
+
+/**
+ * Measures speech energy variation — monotone speech scores low, varied pacing scores high.
+ * Looks at inter-word timing variance as a proxy for vocal energy.
+ */
+function scorePacingVariation(segWords) {
+  if (segWords.length < 10) return 0;
+  const gaps = [];
+  for (let i = 0; i < segWords.length - 1; i++) {
+    gaps.push(segWords[i + 1].start - segWords[i].end);
+  }
+  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const variance = gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length;
+  const stddev = Math.sqrt(variance);
+
+  // High stddev = varied pacing = more engaging
+  if (stddev > 0.4) return 8;
+  if (stddev > 0.25) return 5;
+  if (stddev > 0.15) return 3;
+  return 0;
+}
+
+/**
+ * Topic coherence — measures whether a clip stays on topic via keyword density.
+ * A clip where the top 3 keywords appear frequently is more coherent.
+ */
+function scoreTopicCoherence(segWords) {
+  const freq = {};
+  for (const w of segWords) {
+    const c = cleanWord(w.word);
+    if (c.length > 3 && !STOPWORDS.has(c)) {
+      freq[c] = (freq[c] || 0) + 1;
+    }
+  }
+  const topWords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const totalUnique = Object.keys(freq).length;
+  if (totalUnique === 0) return 0;
+  const topFreqSum = topWords.reduce((s, [, count]) => s + count, 0);
+  const totalWords = segWords.length;
+  const coherenceRatio = topFreqSum / totalWords;
+
+  // Higher ratio = more focused topic = more coherent
+  if (coherenceRatio > 0.12) return 8;
+  if (coherenceRatio > 0.08) return 5;
+  if (coherenceRatio > 0.05) return 3;
+  return 0;
+}
+
+/**
+ * Generates a unique, specific "Why Viral" reason based on the clip's actual content.
+ */
+function generateViralReason(clip, sentences, startIdx, endIdx, emotionData, turnData, wpm) {
+  const parts = [];
+  const openingText = sentences[startIdx].text.slice(0, 40);
+  const closingText = sentences[endIdx].text.slice(-40);
+
+  // Hook description
+  parts.push(`Opens with ${clip.hookType.toLowerCase()}: "${openingText}..."`);
+
+  // Emotional content
+  if (emotionData.dominantEmotion) {
+    const emotionLabels = {
+      surprise: 'surprise/shock moments', humor: 'humor & comedic energy',
+      conflict: 'debate & disagreement', empathy: 'emotional depth',
+      authority: 'credible claims & evidence', curiosity: 'curiosity gaps',
+      urgency: 'urgency & stakes', positive: 'positive energy', negative: 'raw intensity'
+    };
+    parts.push(`${emotionLabels[emotionData.dominantEmotion] || emotionData.dominantEmotion}`);
+  }
+
+  // Turn-taking
+  if (turnData.hasQA) parts.push('complete Q&A exchange');
+  else if (turnData.turnScore > 6) parts.push('dynamic back-and-forth dialogue');
+
+  // Pacing
+  if (wpm >= 140 && wpm <= 170) parts.push('optimal speech pacing');
+  else if (wpm > 170) parts.push('high-energy rapid delivery');
+
+  // Payoff
+  parts.push(`resolves with "...${closingText}"`);
+
+  return parts.join(' • ');
+}
+
+
+// ─── Main Clip Discovery Engine ─────────────────────────────────────────────
+
+/**
+ * High-Quality Viral Clip Finder v2
+ * Multi-signal engagement scoring: emotional intensity, turn-taking, pacing variation,
+ * topic coherence, hook quality, payoff quality, conversation completeness.
+ *
+ * @param {Object} options - { enableHookScan: boolean }
+ */
+function analyzeClipsDynamically(words, fullText, videoDuration, options = {}) {
+  const { enableHookScan = true } = options;
 
   if (!words || words.length === 0) return [];
-
   const sentences = groupWordsIntoSentences(words);
   if (sentences.length === 0) return [];
 
   const candidates = [];
+  const minDur = Math.min(28.0, Math.max(15.0, videoDuration * 0.65));
+  const maxDur = Math.min(50.0, Math.max(35.0, videoDuration));
 
-  // Strictly target 30s - 42s as requested by user (allow a little padding for context expansion)
-  const minDur = Math.min(30.0, Math.max(15.0, videoDuration * 0.70));
-  const maxDur = Math.min(45.0, Math.max(35.0, videoDuration));
-
-  // If video is shorter than target, encapsulate whole video
+  // Short-video fast path
   if (videoDuration <= 35) {
     const topKeywords = extractKeywords(words, 3);
     const firstSentence = sentences[0]?.text || fullText.slice(0, 50);
     const titleText = toTitleCase(firstSentence.split(/\s+/).slice(0, 6).join(' ').replace(/[.,?!]/g, ''));
-
     return [{
-      id: 'clip_1',
-      start: 0,
-      end: parseFloat(videoDuration.toFixed(2)),
-      duration: parseFloat(videoDuration.toFixed(2)),
-      viralityScore: 95,
-      hookType: 'Core Message',
-      title: `${titleText || 'Key Takeaway'} 🔥`,
-      viralityReason: `Complete standalone message with high impact from start to finish.`,
+      id: 'clip_1', start: 0, end: parseFloat(videoDuration.toFixed(2)),
+      duration: parseFloat(videoDuration.toFixed(2)), viralityScore: 95,
+      hookType: 'Core Message', title: `${titleText || 'Key Takeaway'} 🔥`,
+      viralityReason: 'Complete standalone message with high impact from start to finish.',
       transcriptSnippet: fullText.slice(0, 160) + (fullText.length > 160 ? '...' : ''),
-      words,
-      hashtags: ['#shorts', '#viral', ...topKeywords.map(k => `#${k}`)],
+      words, hashtags: ['#shorts', '#viral', ...topKeywords.map(k => `#${k}`)],
       suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels']
     }];
   }
 
-  // Scan through sentences
+  // ── Pre-compute per-sentence banter flags to skip O(n) work inside inner loop ──
+  const sentenceBanter = sentences.map(s => {
+    const lower = s.text.toLowerCase();
+    return BANTER_PHRASES.some(phrase => lower.includes(phrase));
+  });
+
+  // ── Sliding window with sentence-level jumps (not word-level) ──
+  // Use a stride of 1 sentence for the start, and find the optimal end
   for (let i = 0; i < sentences.length; i++) {
+    if (sentenceBanter[i]) continue;
+
     const firstSentence = sentences[i];
     const firstTextLower = firstSentence.text.toLowerCase();
 
-    // 1. BANTER FILTER: Immediately discard small talk and stream setup checks
-    const isBanter = BANTER_PHRASES.some(phrase => firstTextLower.includes(phrase));
-    if (isBanter) {
-      continue; // Skip stream setup chatter completely!
-    }
+    // ── HOOK SCORING ──
+    let hookScore = 0;
+    let hookType = 'Conversation';
 
-    let qualityScore = 70;
-    let hookType = 'Deep Conversation';
-
-    // Hook phrase detection from custom list
-    const hasCustomHook = hookPhrases.some(h => firstTextLower.includes(h.toLowerCase()));
-    if (hasCustomHook) {
-      qualityScore += 12; // boost for strong opening hook
-      hookType = 'Custom Hook';
-    }
-
-    // 2. DIALOGUE & CONTENT QUALITY SCORING
-    // Inquiry & Question Hook
-    if (firstTextLower.includes('?') || /^(can you explain|what does|what are you|why do|what happened|how do you|tell me|who are you)\b/i.test(firstTextLower)) {
-      qualityScore += 18;
-      hookType = 'Intense Question';
-    } else if (/\b(sign|standing for|representing|believe|faith|religion|jesus|islam|christianity|gospel|society|law|rights|freedom|truth)\b/i.test(firstTextLower)) {
-      qualityScore += 16;
-      hookType = 'Thought-Provoking Topic';
-    } else if (/\b(secret|truth|insane|crazy|mistake|problem|solution|heartbreaking|never|stop)\b/i.test(firstTextLower)) {
-      qualityScore += 14;
-      hookType = 'Bold Statement';
-    } else if (/\b(basically|listen|my concern is|the truth is|years ago|i used to)\b/i.test(firstTextLower)) {
-      qualityScore += 12;
-      hookType = 'Personal Story';
-    }
-
-    // Penalize generic stream intros within the first 60 seconds
-    if (firstSentence.start < 60 && /\b(what's up everybody|welcome back|we are here|most requested spot)\b/i.test(firstTextLower)) {
-      qualityScore -= 20;
-    }
-
-    for (let j = i; j < sentences.length; j++) {
-      const expanded = expandClipContext(i, j, sentences, minDur, maxDur);
-      const startIdx = expanded.startIdx;
-      const endIdx = expanded.endIdx;
-
-      let windowWords = [];
-      for (let k = startIdx; k <= endIdx; k++) {
-        windowWords = windowWords.concat(sentences[k].words);
+    if (enableHookScan) {
+      // Custom hooks from config
+      const hasCustomHook = hookPhrases.some(h => firstTextLower.includes(h.toLowerCase()));
+      if (hasCustomHook) {
+        hookScore += 15;
+        hookType = 'Custom Hook';
       }
 
-      const windowStart = sentences[startIdx].start;
-      const windowEnd = sentences[endIdx].end;
+      // Pattern-based hooks
+      for (const pattern of HOOK_PATTERNS) {
+        if (pattern.regex.test(firstTextLower)) {
+          if (pattern.boost > hookScore) {
+            hookScore = pattern.boost;
+            hookType = pattern.type;
+          }
+          break;
+        }
+      }
+    }
+
+    // Penalize generic intro chatter
+    if (firstSentence.start < 60 && /\b(what's up everybody|welcome back|we are here|most requested spot|hey guys|what's going on|how's everyone)\b/i.test(firstTextLower)) {
+      hookScore -= 25;
+    }
+
+    // ── Find optimal end sentence ──
+    // Skip ahead in larger strides for very long videos to limit candidate count
+    const stride = sentences.length > 200 ? 2 : 1;
+
+    for (let j = i + 3; j < sentences.length; j += stride) {
+      const windowStart = firstSentence.start;
+      const windowEnd = sentences[j].end;
       const duration = windowEnd - windowStart;
 
-      // Only accept if strictly within target minDur - maxDur window
-      if (duration >= minDur && duration <= maxDur) {
-        const lastSentence = sentences[endIdx];
-        const lastWord = lastSentence.words[lastSentence.words.length - 1];
-        const lastWordClean = cleanWord(lastWord?.word);
+      // Early exit if we've passed maxDur
+      if (duration > maxDur + 5) break;
 
-        // Discard if ending on dangling connector
-        if (DANGLING_WORDS.has(lastWordClean)) {
-          continue;
-        }
+      if (duration < minDur || duration > maxDur) continue;
 
-        const segText = windowWords.map(w => w.word).join(' ');
-        const segLower = segText.toLowerCase();
+      const lastSentence = sentences[j];
+      const lastWord = lastSentence.words[lastSentence.words.length - 1];
+      const lastWordClean = cleanWord(lastWord?.word);
 
-        // Check for banter inside the clip
-        const containsHeavyBanter = BANTER_PHRASES.filter(p => segLower.includes(p)).length >= 2;
-        if (containsHeavyBanter) {
-          continue;
-        }
+      // Never end on a dangling word
+      if (DANGLING_WORDS.has(lastWordClean)) continue;
 
-        let score = qualityScore;
-        score += sentimentScore(windowWords);
-        score += computeEngagementBoost(windowWords);
-
-        // Conclusion & Payoff Quality
-        const lastSentenceText = lastSentence.text.toLowerCase();
-        if (lastSentence.endsInTerminalPunctuation) {
-          score += 6;
-        }
-
-        // Substantive payoff markers
-        if (/\b(heartbreaking|die for everybody|spread the love|save|reason|that's what you're here to do|peace|believe|period|forever|solution)\b/i.test(lastSentenceText)) {
-          score += 12;
-        }
-
-        // Dialogue turn bonus: if both question and answer are contained
-        if (segText.includes('?') && (segLower.includes('basically') || segLower.includes('because') || segLower.includes('well') || segLower.includes('my concern'))) {
-          score += 10;
-        }
-
-        // Pacing score: 120-175 WPM
-        const wpm = (windowWords.length / (duration / 60));
-        if (wpm >= 115 && wpm <= 180) score += 6;
-
-        score = Math.min(99, Math.max(76, Math.round(score)));
-
-        // Generate clean meaningful title
-        let titleWords = firstSentence.text.split(/\s+/).slice(0, 8);
-        while (titleWords.length > 3 && DANGLING_WORDS.has(cleanWord(titleWords[titleWords.length - 1]))) {
-          titleWords.pop();
-        }
-        let cleanTitle = toTitleCase(titleWords.join(' ').replace(/[.,?!]/g, '').trim());
-        if (!cleanTitle || cleanTitle.length < 5) cleanTitle = "The Real Meaning";
-
-        const emoji = windowWords.find(w => w.emoji)?.emoji || (hookType.includes('Question') ? '🗣️' : hookType.includes('Topic') ? '💡' : '🔥');
-        const dynamicTitle = `${cleanTitle} ${emoji}`;
-
-        const reason = `High-meaning dialogue (${Math.round(wpm)} WPM): Opens with "${firstSentence.text.slice(0, 32)}...", develops topic context, and resolves with clean conclusion.`;
-
-        candidates.push({
-          id: `clip_${candidates.length + 1}`,
-          start: parseFloat(windowStart.toFixed(2)),
-          end: parseFloat(windowEnd.toFixed(2)),
-          duration: parseFloat(duration.toFixed(2)),
-          viralityScore: score,
-          hookType,
-          title: dynamicTitle,
-          viralityReason: reason,
-          transcriptSnippet: segText.slice(0, 180) + (segText.length > 180 ? '...' : ''),
-          words: windowWords,
-          hashtags: ['#shorts', '#viral', '#debate', '#conversation'],
-          suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels'],
-          // Attach generated hook if none was present
-          generatedHook: hasCustomHook ? null : undefined
-        });
+      // Collect words for this window
+      let windowWords = [];
+      let banterCount = 0;
+      for (let k = i; k <= j; k++) {
+        windowWords = windowWords.concat(sentences[k].words);
+        if (sentenceBanter[k]) banterCount++;
       }
+
+      // Skip clips with too much banter
+      if (banterCount >= 2) continue;
+
+      // ── MULTI-SIGNAL SCORING ──
+      let score = 50; // Base score
+
+      // 1. Hook quality
+      score += hookScore;
+
+      // 2. Emotional intensity
+      const emotionData = scoreEmotionalIntensity(windowWords);
+      score += emotionData.totalScore;
+
+      // 3. Turn-taking / dialogue quality
+      const turnData = scoreTurnTaking(windowWords, sentences, i, j);
+      score += turnData.turnScore;
+      if (turnData.hasQA) score += 12; // Massive boost for complete Q&A
+
+      // 4. Pacing variation (not monotone)
+      score += scorePacingVariation(windowWords);
+
+      // 5. Topic coherence
+      score += scoreTopicCoherence(windowWords);
+
+      // 6. Payoff quality — how well does the clip end?
+      const lastSentenceText = lastSentence.text;
+      for (const payoff of PAYOFF_PATTERNS) {
+        if (payoff.regex.test(lastSentenceText)) {
+          score += payoff.boost;
+          break;
+        }
+      }
+
+      // 7. Speech rate in optimal range
+      const wpm = (windowWords.length / (duration / 60));
+      if (wpm >= 120 && wpm <= 175) score += 6;
+      else if (wpm >= 100 && wpm <= 200) score += 3;
+      else if (wpm < 60 || wpm > 250) score -= 8; // Too slow or too fast
+
+      // 8. Word count density — very short clips with few words are boring
+      if (windowWords.length < 40) score -= 10;
+      if (windowWords.length > 80) score += 3;
+
+      // 9. Penalize clips that start with filler
+      const firstWord = cleanWord(firstSentence.words[0]?.word);
+      if (['um', 'uh', 'like', 'so', 'okay', 'yeah', 'well', 'right'].includes(firstWord)) {
+        score -= 5;
+      }
+
+      // Clamp score
+      score = Math.min(99, Math.max(55, Math.round(score)));
+
+      // Generate title
+      let titleWords = firstSentence.text.split(/\s+/).slice(0, 8);
+      while (titleWords.length > 3 && DANGLING_WORDS.has(cleanWord(titleWords[titleWords.length - 1]))) {
+        titleWords.pop();
+      }
+      let cleanTitle = toTitleCase(titleWords.join(' ').replace(/[.,?!]/g, '').trim());
+      if (!cleanTitle || cleanTitle.length < 5) cleanTitle = 'The Real Meaning';
+
+      const emojiMap = {
+        'Intense Question': '🗣️', 'Hot Take': '🔥', 'Storytelling': '📖',
+        'Question Hook': '❓', 'Contrarian Take': '💡', 'Attention Grabber': '⚡',
+        'Imagination Hook': '✨', 'Dramatic Event': '😱', 'Stat-Based Hook': '📊',
+        'Thought-Provoking Topic': '💡', 'Bold Statement': '🔥', 'Personal Story': '📖',
+        'Custom Hook': '🎯', 'Conversation': '💬'
+      };
+      const emoji = emojiMap[hookType] || '🔥';
+
+      const reason = generateViralReason(
+        { hookType }, sentences, i, j, emotionData, turnData, wpm
+      );
+
+      candidates.push({
+        id: `clip_${candidates.length + 1}`,
+        start: parseFloat(windowStart.toFixed(2)),
+        end: parseFloat(windowEnd.toFixed(2)),
+        duration: parseFloat(duration.toFixed(2)),
+        viralityScore: score,
+        hookType,
+        title: `${cleanTitle} ${emoji}`,
+        viralityReason: reason,
+        transcriptSnippet: windowWords.map(w => w.word).join(' ').slice(0, 200) + '...',
+        words: windowWords,
+        hashtags: ['#shorts', '#viral', ...extractKeywords(windowWords, 2).map(k => `#${k}`)],
+        suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels'],
+        generatedHook: null
+      });
     }
   }
 
-  // Sort descending by viralityScore
+  // Sort by score descending
   candidates.sort((a, b) => b.viralityScore - a.viralityScore);
 
-  // Deduplicate overlapping clips (allow a little more tolerance for context‑expanded clips)
+  // Deduplicate — reject if >25% time overlap with a higher-scoring clip
   const finalClips = [];
   for (const cand of candidates) {
     const isOverlapping = finalClips.some(existing => {
       const overlapStart = Math.max(cand.start, existing.start);
       const overlapEnd = Math.min(cand.end, existing.end);
       const overlap = Math.max(0, overlapEnd - overlapStart);
-      return overlap > 0.30 * Math.min(cand.duration, existing.duration);
+      return overlap > 0.25 * Math.min(cand.duration, existing.duration);
     });
-
-    if (!isOverlapping && finalClips.length < 5) {
+    if (!isOverlapping) {
       finalClips.push(cand);
+      if (finalClips.length >= 6) break;
     }
   }
 
-  return finalClips.length > 0 ? finalClips : candidates.slice(0, 4);
+  return finalClips.length > 0 ? finalClips : candidates.slice(0, 5);
+}
 
 
-/**
- * Groq Llama-3 AI Virality Analyzer (Free Tier, 400ms inference)
- */
+// ─── LLM-Based Analyzers ────────────────────────────────────────────────────
+
 async function analyzeClipsWithGroq(words, fullText, videoDuration, apiKey) {
   const prompt = `You are a viral shorts editor for TikTok and YouTube Shorts.
-Analyze this transcript and find top 3-5 high-meaning, engaging clips strictly between 30 and 40 seconds.
-CRITICAL:
-1. Ignore stream setup, camera checks, hair checks, backpack adjustments, or small-talk banter.
-2. Select only substantive debates, interviews, stories, or compelling discussions that make COMPLETE sense.
-3. Never end mid-sentence or mid-thought.
+Analyze this transcript and find the top 5 most ENGAGING clips, each strictly between 30 and 45 seconds.
 
-Duration: ${videoDuration}s.
+CRITICAL RULES:
+1. IGNORE stream setup, camera checks, hair checks, backpack adjustments, or small-talk banter.
+2. Select ONLY segments with HIGH ENGAGEMENT: debates, arguments, shocking revelations, funny moments, emotional stories, or thought-provoking questions.
+3. Each clip MUST start with a strong hook (question, bold statement, or attention grabber) and end with a payoff (conclusion, punchline, or resolution).
+4. NEVER end mid-sentence or mid-thought. Each clip must be self-contained and make complete sense.
+5. Prioritize: conflict/debate > humor/funny > emotional/story > educational > general conversation.
+
+Video Duration: ${videoDuration}s.
 Transcript:
-${fullText}
+${fullText.slice(0, 12000)}
 
-Return valid JSON array:
+Return ONLY a valid JSON array (no wrapping object):
 [
   {
     "start": 88.0,
@@ -420,7 +534,7 @@ Return valid JSON array:
     "viralityScore": 98,
     "hookType": "Intense Debate",
     "title": "What Does Your Sign Mean? 🗣️",
-    "viralityReason": "High-interest conversation with powerful question hook and complete emotional payoff.",
+    "viralityReason": "Opens with provocative question, features heated back-and-forth debate, resolves with powerful statement.",
     "hashtags": ["#shorts", "#debate"]
   }
 ]`;
@@ -430,7 +544,7 @@ Return valid JSON array:
       model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
-      temperature: 0.2
+      temperature: 0.15
     });
 
     const options = {
@@ -461,8 +575,7 @@ Return valid JSON array:
               return {
                 id: `clip_groq_${i + 1}`,
                 ...c,
-                start,
-                end,
+                start, end,
                 duration: parseFloat((end - start).toFixed(2)),
                 words: words.filter(w => w.start >= start - 0.2 && w.end <= end + 0.2),
                 suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels']
@@ -477,24 +590,18 @@ Return valid JSON array:
       });
     });
 
-    req.on('error', () => {
-      resolve(analyzeClipsDynamically(words, fullText, videoDuration));
-    });
-
+    req.on('error', () => resolve(analyzeClipsDynamically(words, fullText, videoDuration)));
     req.write(postData);
     req.end();
   });
 }
 
-/**
- * Gemini Flash API Virality Analyzer (Free Tier)
- */
 async function analyzeClipsWithGemini(words, fullText, videoDuration, apiKey) {
-  const prompt = `You are a viral shorts editor. Select top 3-4 high-meaning clips between 30 and 40 seconds.
-Exclude stream setup banter or mic checks.
+  const prompt = `You are a viral shorts editor. Find the top 5 most engaging clips (30-45 seconds each).
+Rules: Ignore banter/setup. Each clip needs a strong hook + complete payoff. Prioritize conflict, humor, emotion.
 Video duration: ${videoDuration}s.
 Transcript:
-${fullText}
+${fullText.slice(0, 12000)}
 
 Return valid JSON array:
 [
@@ -537,10 +644,7 @@ Return valid JSON array:
             const start = Math.max(0, parseFloat(c.start));
             const end = Math.min(videoDuration, parseFloat(c.end));
             return {
-              id: `clip_gemini_${i + 1}`,
-              ...c,
-              start,
-              end,
+              id: `clip_gemini_${i + 1}`, ...c, start, end,
               duration: parseFloat((end - start).toFixed(2)),
               words: words.filter(w => w.start >= start - 0.2 && w.end <= end + 0.2),
               suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels']
@@ -553,59 +657,43 @@ Return valid JSON array:
       });
     });
 
-    req.on('error', () => {
-      resolve(analyzeClipsDynamically(words, fullText, videoDuration));
-    });
-
+    req.on('error', () => resolve(analyzeClipsDynamically(words, fullText, videoDuration)));
     req.write(postData);
     req.end();
   });
 }
 
-/**
- * Master dispatcher
- */
-async function discoverViralClips(words, fullText, videoDuration, keys = {}) {
+
+// ─── Master Dispatcher ──────────────────────────────────────────────────────
+
+async function discoverViralClips(words, fullText, videoDuration, keys = {}, options = {}) {
   const groqKey = (typeof keys === 'string' ? null : keys?.groqApiKey) || process.env.GROQ_API_KEY;
   const geminiKey = (typeof keys === 'string' ? keys : keys?.geminiApiKey) || process.env.GEMINI_API_KEY;
+  const { enableHookScan = true } = options;
+
+  let clips = null;
 
   if (groqKey) {
     try {
-      return await analyzeClipsWithGroq(words, fullText, videoDuration, groqKey);
+      clips = await analyzeClipsWithGroq(words, fullText, videoDuration, groqKey);
     } catch (e) {
       console.warn('Groq analysis fallback to local:', e.message);
     }
   }
 
-  if (geminiKey) {
+  if (!clips && geminiKey) {
     try {
-      return await analyzeClipsWithGemini(words, fullText, videoDuration, geminiKey);
+      clips = await analyzeClipsWithGemini(words, fullText, videoDuration, geminiKey);
     } catch (e) {
       console.warn('Gemini analysis fallback to local:', e.message);
     }
   }
 
-  return analyzeClipsDynamically(words, fullText, videoDuration);
-    }
-  
-  // After clip discovery, enrich clips with generated hooks if needed
-  const enrichedClips = [];
-  for (const clip of (await (groqKey ? analyzeClipsWithGroq(words, fullText, videoDuration, groqKey) : (geminiKey ? analyzeClipsWithGemini(words, fullText, videoDuration, geminiKey) : analyzeClipsDynamically(words, fullText, videoDuration)))) ) {
-    if (!clip.hookType && !clip.generatedHook) {
-      // No custom hook detected, generate one
-      try {
-        const genHook = await generateHookAsync();
-        clip.generatedHook = genHook;
-        clip.hookType = 'Auto-Generated Hook';
-        // Prepend hook text to title for visibility
-        clip.title = `${genHook} 🔥 ${clip.title}`;
-      } catch (e) {
-        console.warn('Hook generation failed:', e);
-      }
-    }
-    enrichedClips.push(clip);
+  if (!clips) {
+    clips = analyzeClipsDynamically(words, fullText, videoDuration, { enableHookScan });
   }
-  return enrichedClips;
+
+  return clips;
 }
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Link as LinkIcon, Play, Sparkles, AlertCircle, ArrowRight, Loader2, Zap, Video } from 'lucide-react';
 
-export default function IngestionZone({ onSelectSample, onUploadFile, onDownloadUrl, samples, isLoading, scanMode = 'lightning', onScanModeChange }) {
+export default function IngestionZone({ onSelectSample, onUploadFile, onDownloadUrl, samples, isLoading, scanMode = 'lightning', onScanModeChange, enableHookScan = true, onEnableHookScanChange }) {
   const [url, setUrl] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
@@ -128,6 +128,74 @@ export default function IngestionZone({ onSelectSample, onUploadFile, onDownload
           <Video size={15} />
           <span>🎬 Deep Full Video Scan</span>
         </button>
+      </div>
+
+      {/* Viral Hook Scan Toggle */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '12px',
+        marginBottom: '28px'
+      }}>
+        <button
+          type="button"
+          onClick={() => onEnableHookScanChange && onEnableHookScanChange(!enableHookScan)}
+          style={{
+            background: enableHookScan
+              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.15))'
+              : 'rgba(255, 255, 255, 0.03)',
+            border: enableHookScan
+              ? '1px solid #10b981'
+              : '1px solid var(--border-subtle)',
+            color: enableHookScan ? '#34d399' : 'var(--text-muted)',
+            padding: '8px 20px',
+            borderRadius: 'var(--radius-full)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontWeight: 600,
+            fontSize: '0.84rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <span style={{
+            width: '36px',
+            height: '20px',
+            borderRadius: '10px',
+            background: enableHookScan ? '#10b981' : 'rgba(255,255,255,0.15)',
+            position: 'relative',
+            display: 'inline-block',
+            transition: 'background 0.2s ease',
+            flexShrink: 0
+          }}>
+            <span style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              background: '#fff',
+              position: 'absolute',
+              top: '2px',
+              left: enableHookScan ? '18px' : '2px',
+              transition: 'left 0.2s ease',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+            }} />
+          </span>
+          <span>🎣 Scan for Viral Hooks</span>
+        </button>
+
+        <span style={{
+          fontSize: '0.75rem',
+          color: 'var(--text-muted)',
+          maxWidth: '280px',
+          lineHeight: 1.3
+        }}>
+          {enableHookScan
+            ? 'AI will prioritize clips that open with attention-grabbing hooks (questions, bold statements, stories)'
+            : 'Clips selected purely by engagement signals without hook preference'
+          }
+        </span>
       </div>
 
       {/* Main Ingestion Grid */}

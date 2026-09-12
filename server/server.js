@@ -275,19 +275,19 @@ app.post('/api/download-url', async (req, res) => {
  * Master Pipeline: Ingest -> Probe -> Transcribe -> Viral Clip Detection
  */
 app.post('/api/process', async (req, res) => {
-  const { filePath, vttPath, geminiApiKey, groqApiKey, scanMode = 'lightning' } = req.body;
+  const { filePath, vttPath, geminiApiKey, groqApiKey, scanMode = 'lightning', enableHookScan = true } = req.body;
 
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(400).json({ error: 'Valid filePath is required' });
   }
 
   try {
-    // 1. Probe video metadata
-    const meta = await probeVideo(filePath);
-
-    // 2. Extract audio to 16kHz WAV
+    // 1+2. Probe video metadata AND extract audio in parallel for speed
     const audioPath = path.join(UPLOAD_DIR, `${path.basename(filePath, path.extname(filePath))}_audio.wav`);
-    await extractAudio(filePath, audioPath);
+    const [meta] = await Promise.all([
+      probeVideo(filePath),
+      extractAudio(filePath, audioPath)
+    ]);
 
     // 3. Transcription (Lightning mode pre-trims long files for fast 30s processing on CPU)
     const transcript = await transcribeAudio(audioPath, {
@@ -302,7 +302,8 @@ app.post('/api/process', async (req, res) => {
       transcript.words,
       transcript.text,
       meta.duration,
-      { geminiApiKey, groqApiKey }
+      { geminiApiKey, groqApiKey },
+      { enableHookScan }
     );
 
     res.json({
