@@ -13,22 +13,85 @@ export function drawKineticSubtitles(ctx, canvasWidth, canvasHeight, currentTime
     highlightColor = '#FFE600', // Neon Yellow
     primaryColor = '#FFFFFF',
     position = 'bottom', // 'bottom', 'center', 'top'
-    showEmojis = true
+    showEmojis = true,
+    hookBannerText = null,
+    showHookBanner = true
   } = options;
 
-  // Group words into chunks of 3-4 words
-  const chunkSize = style === 'hormozi' ? 3 : 4;
+  // Render Opus-style Top Hook Headline Banner if enabled
+  if (showHookBanner && hookBannerText && hookBannerText.trim()) {
+    ctx.save();
+    const bannerFont = "'Montserrat', sans-serif";
+    const bannerFontSize = Math.round(canvasWidth * 0.040);
+    ctx.font = `800 ${bannerFontSize}px ${bannerFont}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const bannerText = hookBannerText.trim().toUpperCase();
+    const metrics = ctx.measureText(bannerText);
+    const boxW = Math.min(canvasWidth * 0.92, metrics.width + bannerFontSize * 1.8);
+    const boxH = bannerFontSize * 2.0;
+    const boxX = (canvasWidth - boxW) / 2;
+    const boxY = canvasHeight * 0.06;
+    const radius = 12;
+
+    // Draw frosted dark pill background with accent border
+    ctx.fillStyle = 'rgba(10, 15, 29, 0.90)';
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw text with crisp drop shadow
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 8;
+    ctx.fillText(bannerText, canvasWidth / 2, boxY + boxH / 2);
+    ctx.restore();
+  }
+
+  // Smart Natural Phrase Chunking: breaks on sentence punctuation, speech pauses >0.35s, or max words
+  const maxChunkWords = style === 'hormozi' ? 3 : 4;
+  const chunks = [];
+  let currentGroup = [];
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    currentGroup.push(w);
+
+    const raw = (w.word || '').trim();
+    const hasTerminal = /[.?!]$/.test(raw);
+    const hasComma = /[,;:]$/.test(raw);
+    const nextW = words[i + 1];
+    const pauseAfter = nextW ? (nextW.start - w.end) : 0;
+
+    const shouldBreak =
+      hasTerminal ||
+      pauseAfter > 0.35 ||
+      currentGroup.length >= maxChunkWords ||
+      (hasComma && currentGroup.length >= 2);
+
+    if (shouldBreak || i === words.length - 1) {
+      chunks.push(currentGroup);
+      currentGroup = [];
+    }
+  }
+
   let activeChunk = null;
   let activeWord = null;
 
-  for (let i = 0; i < words.length; i += chunkSize) {
-    const group = words.slice(i, i + chunkSize);
+  for (let i = 0; i < chunks.length; i++) {
+    const group = chunks[i];
     const start = group[0].start;
     const end = group[group.length - 1].end;
 
-    if (currentTime >= start - 0.05 && currentTime <= end + 0.1) {
+    // Display active chunk precisely during speech (with small padding)
+    if (currentTime >= start - 0.06 && currentTime <= end + 0.18) {
       activeChunk = group;
-      activeWord = group.find(w => currentTime >= w.start && currentTime <= w.end) || group[0];
+      activeWord = group.find(w => currentTime >= w.start - 0.02 && currentTime <= w.end + 0.04) ||
+        (currentTime < group[0].start ? group[0] : group[group.length - 1]);
       break;
     }
   }

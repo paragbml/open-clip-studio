@@ -11,7 +11,8 @@ export default defineConfig({
       '/api': 'http://localhost:5000',
       '/uploads': 'http://localhost:5000',
       '/samples': 'http://localhost:5000',
-      '/exports': 'http://localhost:5000'
+      '/exports': 'http://localhost:5000',
+      '/sfx': 'http://localhost:5000'
     }
   }
 })

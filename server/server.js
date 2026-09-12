@@ -369,7 +369,9 @@ app.post('/api/render-clip', async (req, res) => {
     fontSize = 58,
     words = [],
     burnSubtitles = true,
-    enableSpotlight = false
+    enableSpotlight = false,
+    hookBannerText = null,
+    showHookBanner = true
   } = req.body;
 
   if (!filePath || !fs.existsSync(filePath)) {
@@ -391,7 +393,9 @@ app.post('/api/render-clip', async (req, res) => {
         style,
         fontSize,
         videoWidth: 1080,
-        videoHeight: 1920
+        videoHeight: 1920,
+        hookBannerText: showHookBanner ? hookBannerText : null,
+        clipDuration: duration
       });
 
       assPath = path.join(EXPORT_DIR, `sub_${Date.now()}_${clipId}.ass`);

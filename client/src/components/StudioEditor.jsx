@@ -53,6 +53,8 @@ export default function StudioEditor({
   const [sfxVolume, setSfxVolume] = useState(1.0); // 0 to 1.5
   const [jumpCutData, setJumpCutData] = useState(null);
   const [activeSfxBadge, setActiveSfxBadge] = useState(null);
+  const [showHookBanner, setShowHookBanner] = useState(true);
+  const [hookBannerText, setHookBannerText] = useState(clip.title ? clip.title.toUpperCase() : 'VIRAL MOMENT 🔥');
 
   // Visual FX & Clipping Assets States
   const [enableSpotlight, setEnableSpotlight] = useState(false); // Natural lighting by default (not dark!)
@@ -74,7 +76,7 @@ export default function StudioEditor({
     ? `/api/clip-preview?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}`
     : videoUrl;
 
-  // Initialize Web Audio Engine and decode sound effect buffers
+  // Initialize Web Audio Engine and decode sound effect buffers (sourced from MyInstants)
   useEffect(() => {
     try {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -85,7 +87,7 @@ export default function StudioEditor({
       console.warn('Web Audio not supported:', e);
     }
 
-    const sfxList = ['vine_boom', 'whoosh', 'ding', 'record_scratch'];
+    const sfxList = ['vine_boom', 'whoosh', 'ding', 'record_scratch', 'bruh', 'airhorn'];
     sfxList.forEach(name => {
       fetch(`/sfx/${name}.wav`)
         .then(r => r.arrayBuffer())
@@ -112,15 +114,17 @@ export default function StudioEditor({
   const playSfx = (type) => {
     if (!enableSfx) return;
 
+    // Always resume audio context if suspended by browser policy
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+
     if (audioCtxRef.current && audioBuffersRef.current[type]) {
       try {
-        if (audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume().catch(() => {});
-        }
         const source = audioCtxRef.current.createBufferSource();
         source.buffer = audioBuffersRef.current[type];
         const gain = audioCtxRef.current.createGain();
-        const baseVol = type === 'vine_boom' ? 1.25 : 1.0;
+        const baseVol = (type === 'vine_boom' || type === 'airhorn') ? 1.35 : (type === 'bruh' ? 1.25 : 1.0);
         gain.gain.value = baseVol * sfxVolume;
         source.connect(gain);
         gain.connect(audioCtxRef.current.destination);
@@ -132,7 +136,7 @@ export default function StudioEditor({
       const audio = sfxAudiosRef.current[type];
       if (audio) {
         audio.currentTime = 0;
-        audio.volume = Math.min(1.0, (type === 'vine_boom' ? 1.0 : 0.85) * sfxVolume);
+        audio.volume = Math.min(1.0, ((type === 'vine_boom' || type === 'airhorn') ? 1.0 : 0.85) * sfxVolume);
         audio.play().catch(() => {});
       }
     }
@@ -256,7 +260,9 @@ export default function StudioEditor({
       highlightColor,
       primaryColor: '#FFFFFF',
       position: reframeMode === 'split_stacked' ? 'center' : captionPosition,
-      showEmojis
+      showEmojis,
+      hookBannerText,
+      showHookBanner
     });
 
     if (!video.paused && !video.ended) {
@@ -372,12 +378,12 @@ export default function StudioEditor({
       video.removeEventListener('error', handleError);
       cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [trimStart, trimEnd, clipDuration, words, style, highlightColor, fontSize, captionPosition, showEmojis, enableJumpCut, enableSfx, jumpCutData, sfxVolume, enablePunchInZoom, enableBeatFlash, enableReactionBadges, reframeMode]);
+  }, [trimStart, trimEnd, clipDuration, words, style, highlightColor, fontSize, captionPosition, showEmojis, enableJumpCut, enableSfx, jumpCutData, sfxVolume, enablePunchInZoom, enableBeatFlash, enableReactionBadges, reframeMode, hookBannerText, showHookBanner]);
 
-  // Re-draw canvas immediately when styling or words change
+  // Re-draw canvas immediately when styling, banner or words change
   useEffect(() => {
     updateCanvas();
-  }, [style, highlightColor, fontSize, captionPosition, showEmojis, words, reframeMode]);
+  }, [style, highlightColor, fontSize, captionPosition, showEmojis, words, reframeMode, hookBannerText, showHookBanner]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -442,7 +448,9 @@ export default function StudioEditor({
       enableSpotlight,
       style,
       fontSize,
-      words
+      words,
+      hookBannerText: showHookBanner ? hookBannerText : null,
+      showHookBanner
     });
   };
 
@@ -1414,39 +1422,54 @@ export default function StudioEditor({
                   </div>
                 </div>
 
-                {/* Soundboard Test Buttons */}
+                {/* Soundboard Test Buttons (Directly sourced from MyInstants) */}
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>
-                    Streamer Soundboard (Click to test sound effect):
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Streamer Soundboard (Authentic MyInstants SFX):</span>
+                    <span style={{ fontSize: '0.7rem', color: '#38bdf8' }}>6 Active Sounds</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                     <button
                       onClick={() => { playSfx('vine_boom'); triggerSfxBadge('💥 VINE BOOM'); }}
                       className="btn-secondary"
-                      style={{ fontSize: '0.8rem', padding: '8px 10px', justifyContent: 'center' }}
+                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
                     >
                       <span>💥 Vine Boom</span>
                     </button>
                     <button
                       onClick={() => { playSfx('whoosh'); triggerSfxBadge('💨 WHOOSH'); }}
                       className="btn-secondary"
-                      style={{ fontSize: '0.8rem', padding: '8px 10px', justifyContent: 'center' }}
+                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
                     >
-                      <span>💨 Fast Whoosh</span>
+                      <span>💨 Whoosh</span>
                     </button>
                     <button
                       onClick={() => { playSfx('ding'); triggerSfxBadge('🔔 DING'); }}
                       className="btn-secondary"
-                      style={{ fontSize: '0.8rem', padding: '8px 10px', justifyContent: 'center' }}
+                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
                     >
-                      <span>🔔 Punch Ding</span>
+                      <span>🔔 Ding</span>
                     </button>
                     <button
-                      onClick={() => { playSfx('record_scratch'); triggerSfxBadge('💿 RECORD SCRATCH'); }}
+                      onClick={() => { playSfx('record_scratch'); triggerSfxBadge('💿 SCRATCH'); }}
                       className="btn-secondary"
-                      style={{ fontSize: '0.8rem', padding: '8px 10px', justifyContent: 'center' }}
+                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
                     >
-                      <span>💿 Record Scratch</span>
+                      <span>💿 Scratch</span>
+                    </button>
+                    <button
+                      onClick={() => { playSfx('bruh'); triggerSfxBadge('🗿 BRUH'); }}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
+                    >
+                      <span>🗿 Bruh</span>
+                    </button>
+                    <button
+                      onClick={() => { playSfx('airhorn'); triggerSfxBadge('🎺 AIRHORN'); }}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
+                    >
+                      <span>🎺 Airhorn</span>
                     </button>
                   </div>
                 </div>
@@ -1785,6 +1808,53 @@ export default function StudioEditor({
                   onChange={(e) => setShowEmojis(e.target.checked)}
                   style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
                 />
+              </div>
+
+              {/* Viral Top Hook Banner (Opus Signature Header) */}
+              <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🏷️ Top Hook Headline Banner</span>
+                      <span style={{ fontSize: '0.68rem', padding: '1px 6px', background: 'rgba(99,102,241,0.25)', color: '#a5b4fc', borderRadius: '4px', fontWeight: 700 }}>OPUS CLIPS</span>
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}>Scroll-stopping header card pinned at the top of the 9:16 vertical short</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showHookBanner}
+                    onChange={(e) => setShowHookBanner(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                  />
+                </div>
+                {showHookBanner && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={hookBannerText}
+                      onChange={(e) => setHookBannerText(e.target.value)}
+                      placeholder="Enter viral headline banner..."
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: '#ffffff',
+                        fontSize: '0.84rem',
+                        fontWeight: 700
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ fontSize: '0.75rem', padding: '0 10px' }}
+                      onClick={() => setHookBannerText((clip.title ? clip.title.toUpperCase() : 'VIRAL MOMENT') + ' 🔥')}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

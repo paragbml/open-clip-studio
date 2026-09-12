@@ -10,7 +10,7 @@ const TRANSCRIBE_SCRIPT = path.join(__dirname, 'transcribe_local.py');
  * Runs local Faster-Whisper on CPU with INT8 quantization
  */
 function runLocalWhisper(audioPath, options = {}) {
-  const { maxDuration = 600, scanMode = 'lightning' } = options;
+  const { maxDuration = 600, scanMode = 'lightning', language = 'en', model = 'base.en' } = options;
 
   return new Promise((resolve, reject) => {
     let effectiveAudioPath = audioPath;
@@ -32,7 +32,12 @@ function runLocalWhisper(audioPath, options = {}) {
     }
 
     const pythonBin = 'python3';
-    const args = [TRANSCRIBE_SCRIPT, effectiveAudioPath, '--model', 'tiny'];
+    const args = [
+      TRANSCRIBE_SCRIPT,
+      effectiveAudioPath,
+      '--model', model || 'base.en',
+      '--language', language || 'en'
+    ];
 
     const proc = spawn(pythonBin, args);
 
@@ -218,16 +223,24 @@ async function transcribeAudio(audioPath, options = {}) {
     try {
       const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
       if (cached && cached.words && cached.words.length > 0) {
-        console.log(`⚡ Instant Cache Hit: Loaded cached transcription for ${path.basename(audioPath)}`);
-        return cached;
+        // If cached transcript is non-English when user requested English or default, bypass and re-transcribe cleanly!
+        const reqLang = options.language || 'en';
+        if (cached.language && cached.language !== reqLang && reqLang === 'en') {
+          console.log(`⚠️ Invalidating foreign hallucination cache (${cached.language}) for ${path.basename(audioPath)}`);
+        } else {
+          console.log(`⚡ Instant Cache Hit: Loaded cached transcription for ${path.basename(audioPath)}`);
+          return cached;
+        }
       }
     } catch (e) {}
   }
 
   // 3. Run local Faster-Whisper on CPU
-  console.log(`Transcribing ${audioPath} with local Faster-Whisper (mode: ${scanMode})...`);
+  console.log(`Transcribing ${audioPath} with local Faster-Whisper (mode: ${scanMode}, model: ${options.model || 'base.en'})...`);
   const result = await runLocalWhisper(audioPath, {
     scanMode,
+    model: options.model || 'base.en',
+    language: options.language || 'en',
     maxDuration: scanMode === 'lightning' ? 600 : null // 10 minutes for lightning mode
   });
 

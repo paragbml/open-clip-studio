@@ -4,7 +4,7 @@ import os
 import argparse
 from faster_whisper import WhisperModel
 
-def run_transcription(audio_path, model_size="tiny", max_duration=None, progress_file=None):
+def run_transcription(audio_path, model_size="base.en", language="en", max_duration=None, progress_file=None):
     if not os.path.exists(audio_path):
         print(json.dumps({"error": f"Audio file not found: {audio_path}"}))
         sys.exit(1)
@@ -12,26 +12,41 @@ def run_transcription(audio_path, model_size="tiny", max_duration=None, progress
     try:
         # Utilize all 8 CPU hardware threads with 2 workers for maximum speed
         num_threads = 8
+        
+        # Prefer English-optimized base.en when language is English or default
+        effective_model = model_size
+        if effective_model == "tiny" or effective_model == "base.en":
+            effective_model = "base.en" if language == "en" else "base"
+
         model = WhisperModel(
-            model_size,
+            effective_model,
             device="cpu",
             compute_type="int8",
             cpu_threads=num_threads,
             num_workers=2
         )
 
-        # Silero VAD skips all silence, eating sounds, background music
-        # condition_on_previous_text=False gives 2x speedup on long audio and avoids repetition loops
-        segments, info = model.transcribe(
-            audio_path,
-            word_timestamps=True,
-            beam_size=1,
-            best_of=1,
-            temperature=0.0,
-            condition_on_previous_text=False,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=400)
-        )
+        # Conversational streamer initial prompt for high accuracy on modern slang
+        stream_prompt = "Kai Cenat, YouTube, clip, shorts, bro, chat, stream, gaming, laughing, hilarious, react, story, podcast, TikTok, lock in."
+
+        # Silero VAD skips silence and background music
+        # condition_on_previous_text=False + hallucination_silence_threshold prevents repetition loops
+        transcribe_kwargs = {
+            "word_timestamps": True,
+            "beam_size": 2,
+            "best_of": 1,
+            "temperature": 0.0,
+            "initial_prompt": stream_prompt,
+            "condition_on_previous_text": False,
+            "vad_filter": True,
+            "vad_parameters": dict(min_silence_duration_ms=400),
+            "hallucination_silence_threshold": 2.0,
+            "no_speech_threshold": 0.6
+        }
+        if not effective_model.endswith(".en") and language:
+            transcribe_kwargs["language"] = language
+
+        segments, info = model.transcribe(audio_path, **transcribe_kwargs)
 
         words = []
         full_text_parts = []
@@ -109,7 +124,8 @@ def run_transcription(audio_path, model_size="tiny", max_duration=None, progress
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("audio_path")
-    parser.add_argument("--model", default="tiny")
+    parser.add_argument("--model", default="base.en")
+    parser.add_argument("--language", default="en")
     parser.add_argument("--max-duration", type=float, default=None)
     parser.add_argument("--progress-file", default=None)
 
@@ -117,6 +133,7 @@ if __name__ == "__main__":
     run_transcription(
         args.audio_path,
         model_size=args.model,
+        language=args.language,
         max_duration=args.max_duration,
         progress_file=args.progress_file
     )

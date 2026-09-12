@@ -93,7 +93,9 @@ function generateAssSubtitles(words, options = {}) {
     alignment = 2,                  // 2 = bottom center, 5 = middle center
     marginV = 160,                  // Pixels from bottom for vertical 9:16
     videoWidth = 1080,
-    videoHeight = 1920
+    videoHeight = 1920,
+    hookBannerText = null,
+    clipDuration = 60
   } = options;
 
   let fontName = 'Montserrat';
@@ -112,18 +114,37 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,${fontName},${fontSize},${primaryColor},${highlightColor},${outlineColor},&H80000000,-1,0,0,0,100,100,1,0,1,${outline},3,${alignment},40,40,${marginV},1
+Style: TopHook,${fontName},44,&H00FFFFFF&,&H0022FFFF&,&H00000000,&HCC0A0F1D,-1,0,0,0,100,100,2,0,3,14,0,8,60,60,110,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
-  // Group words into short punchy chunks of 2-4 words (signature short-form pacing)
+  // Smart Natural Phrase Chunking: breaks on sentence punctuation, speech pauses >0.35s, or max words
+  const maxChunkWords = style === 'hormozi' ? 3 : 4;
   const chunks = [];
-  const chunkSize = style === 'hormozi' ? 3 : 4;
+  let currentGroup = [];
 
-  for (let i = 0; i < words.length; i += chunkSize) {
-    const group = words.slice(i, i + chunkSize);
-    chunks.push(group);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    currentGroup.push(w);
+
+    const raw = (w.word || '').trim();
+    const hasTerminal = /[.?!]$/.test(raw);
+    const hasComma = /[,;:]$/.test(raw);
+    const nextW = words[i + 1];
+    const pauseAfter = nextW ? (nextW.start - w.end) : 0;
+
+    const shouldBreak =
+      hasTerminal ||
+      pauseAfter > 0.35 ||
+      currentGroup.length >= maxChunkWords ||
+      (hasComma && currentGroup.length >= 2);
+
+    if (shouldBreak || i === words.length - 1) {
+      chunks.push(currentGroup);
+      currentGroup = [];
+    }
   }
 
   const events = [];
@@ -161,6 +182,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       events.push(`Dialogue: 0,${formatAssTime(wStart)},${formatAssTime(wEnd)},Default,,0,0,0,,${formattedWords}`);
     });
   });
+
+  // If Opus Top Hook Banner is provided, add persistent dialogue event at top
+  if (hookBannerText && hookBannerText.trim()) {
+    // Strip emojis that lack TTF font glyphs in libass to ensure crisp typography
+    const cleanBanner = hookBannerText.trim().toUpperCase()
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .replace(/'/g, '')
+      .trim();
+    const endSec = Math.max(5, clipDuration || 60);
+    events.unshift(`Dialogue: 1,0:00:00.00,${formatAssTime(endSec)},TopHook,,0,0,0,,  ${cleanBanner}  `);
+  }
 
   return header + events.join('\n') + '\n';
 }

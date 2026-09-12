@@ -313,20 +313,23 @@ function renderShortClip({
     let filterParts = [videoFilter];
     let audioMap = '0:a?';
 
-    // Mix SFX into audio stream if present
+    // Mix SFX into audio stream if present, and apply Opus-grade broadcast loudnorm (-16 LUFS)
     if (validSfx.length > 0) {
       const sfxFilterParts = [];
       validSfx.forEach((e, idx) => {
         const inputIdx = idx + 1;
         const delayMs = Math.max(0, Math.round(e.time * 1000));
-        const vol = e.type === 'vine_boom' ? 0.95 : 0.85;
+        const vol = (e.type === 'vine_boom' || e.type === 'airhorn') ? 1.1 : 0.9;
         sfxFilterParts.push(`[${inputIdx}:a]adelay=${delayMs}|${delayMs},volume=${vol}[sfx${idx}]`);
       });
 
       const mixInputs = ['[0:a]', ...validSfx.map((_, idx) => `[sfx${idx}]`)].join('');
-      sfxFilterParts.push(`${mixInputs}amix=inputs=${validSfx.length + 1}:duration=first[outa]`);
+      sfxFilterParts.push(`${mixInputs}amix=inputs=${validSfx.length + 1}:duration=first,loudnorm=I=-16:TP=-1.5:LRA=11[outa]`);
       
       filterParts.push(sfxFilterParts.join(';'));
+      audioMap = '[outa]';
+    } else {
+      filterParts.push('[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[outa]');
       audioMap = '[outa]';
     }
 
