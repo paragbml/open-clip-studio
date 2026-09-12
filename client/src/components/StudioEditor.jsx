@@ -93,7 +93,7 @@ export default function StudioEditor({
 
     const sfxList = ['vine_boom', 'whoosh', 'ding', 'record_scratch', 'bruh', 'airhorn'];
     sfxList.forEach(name => {
-      fetch(`/sfx/${name}.wav`)
+      fetch(`./sfx/${name}.wav`)
         .then(r => r.arrayBuffer())
         .then(ab => {
           if (audioCtxRef.current) {
@@ -107,7 +107,7 @@ export default function StudioEditor({
 
       // HTML5 Audio fallback
       try {
-        const a = new Audio(`/sfx/${name}.wav`);
+        const a = new Audio(`./sfx/${name}.wav`);
         a.preload = 'auto';
         sfxAudiosRef.current[name] = a;
       } catch (e) {}
