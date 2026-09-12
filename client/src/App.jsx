@@ -184,6 +184,8 @@ export default function App() {
         {
           id: 'demo_clip_1',
           title: 'The AI Repurposing Revolution 🔥',
+          start: 0,
+          end: 32.5,
           startTime: 0,
           endTime: 32.5,
           duration: 32.5,
@@ -211,6 +213,8 @@ export default function App() {
         {
           id: 'demo_clip_2',
           title: 'How Opus Clip Really Works 🗣️',
+          start: 5,
+          end: 30,
           startTime: 5,
           endTime: 30,
           duration: 25,

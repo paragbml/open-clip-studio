@@ -72,13 +72,13 @@ export default function StudioEditor({
 
   // Editable words & trim boundaries
   const [words, setWords] = useState(clip.words || []);
-  const [trimStart, setTrimStart] = useState(clip.start);
-  const [trimEnd, setTrimEnd] = useState(clip.end);
+  const [trimStart, setTrimStart] = useState(clip.start !== undefined ? clip.start : (clip.startTime !== undefined ? clip.startTime : 0));
+  const [trimEnd, setTrimEnd] = useState(clip.end !== undefined ? clip.end : (clip.endTime !== undefined ? clip.endTime : (clip.duration || 30)));
 
   const clipDuration = Math.max(0.5, parseFloat((trimEnd - trimStart).toFixed(2)));
-  const previewVideoUrl = filePath
-    ? `/api/clip-preview?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}`
-    : videoUrl;
+  const previewVideoUrl = (videoUrl && (videoUrl.startsWith('./') || videoUrl.startsWith('http') || videoUrl.includes('/samples/')))
+    ? videoUrl
+    : (filePath && filePath.startsWith('/') ? `/api/clip-preview?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}` : videoUrl);
 
   // Initialize Web Audio Engine and decode sound effect buffers (sourced from MyInstants)
   useEffect(() => {
