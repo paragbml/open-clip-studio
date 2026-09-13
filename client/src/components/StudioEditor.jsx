@@ -3,7 +3,7 @@ import {
   Play, Pause, RotateCcw, Download, Sparkles, Sliders, Type, Scissors,
   ArrowLeft, Palette, Check, RefreshCw, Smartphone, Monitor, Square,
   Zap, Volume2, Crosshair, Flame, Wand2, Eye, ShieldAlert, Sparkle,
-  Users, Rows2
+  Users, Rows2, Maximize2, Layers
 } from 'lucide-react';
 import { drawKineticSubtitles } from '../utils/captionRenderer';
 import { formatTimeDetailed, formatTime } from '../utils/formatters';
@@ -187,7 +187,12 @@ export default function StudioEditor({
     let isMounted = true;
     setIsTrackingLoading(true);
 
-    fetch(`/api/clip-tracking?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}`)
+    const backendBase = backendUrl || (typeof window !== 'undefined' && localStorage.getItem('openclip_backend_url')) || '';
+    const trackingEndpoint = backendBase
+      ? `${backendBase.replace(/\/$/, '')}/api/clip-tracking?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}`
+      : `/api/clip-tracking?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}`;
+
+    fetch(trackingEndpoint)
       .then(r => r.json())
       .then(data => {
         if (isMounted) {
@@ -211,7 +216,11 @@ export default function StudioEditor({
         if (isMounted) setIsTrackingLoading(false);
       });
 
-    fetch('/api/jump-cuts', {
+    const jumpCutEndpoint = backendBase
+      ? `${backendBase.replace(/\/$/, '')}/api/jump-cuts`
+      : '/api/jump-cuts';
+
+    fetch(jumpCutEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -228,7 +237,7 @@ export default function StudioEditor({
       .catch(err => console.warn('Jump-cuts calculation error:', err));
 
     return () => { isMounted = false; };
-  }, [filePath, trimStart, clipDuration, words]);
+  }, [filePath, trimStart, clipDuration, words, backendUrl]);
 
   // Exact mathematical conversion from video horizontal coordinate (0% - 100%)
   // to CSS object-position percentage, ensuring subject is in the dead-center of the 9:16 phone mockup

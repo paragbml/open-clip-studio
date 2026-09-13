@@ -141,13 +141,13 @@ export default function Header({ onOpenSettings, status, view = 'ingestion', onN
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              background: '#10b981',
-              boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+              background: status?.isStaticDemo ? '#f59e0b' : '#10b981',
+              boxShadow: status?.isStaticDemo ? '0 0 6px rgba(245, 158, 11, 0.6)' : '0 0 6px rgba(16, 185, 129, 0.6)',
               display: 'inline-block'
             }}
           />
-          <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
-            {status?.ffmpegReady ? 'Local Engine' : 'AI Engine Ready'}
+          <span style={{ fontWeight: 500, color: status?.isStaticDemo ? '#fcd34d' : 'var(--text-secondary)' }}>
+            {status?.isStaticDemo ? 'Web Demo (Static)' : (status?.ffmpegReady ? 'Local Engine' : 'Backend Connected')}
           </span>
         </div>
 

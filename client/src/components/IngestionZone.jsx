@@ -10,11 +10,25 @@ export default function IngestionZone({
   scanMode = 'lightning',
   onScanModeChange,
   enableHookScan = true,
-  onEnableHookScanChange
+  onEnableHookScanChange,
+  isStaticDemo = false,
+  backendUrl = '',
+  onOpenSettings
 }) {
   const [url, setUrl] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
+
+  const notifyStaticDemo = () => {
+    alert(
+      '⚠️ Backend Server Required for Custom Videos:\n\n' +
+      'GitHub Pages only provides static hosting and cannot run yt-dlp, FFmpeg, or Faster-Whisper on GitHub servers.\n\n' +
+      'How to process custom videos:\n' +
+      '1. Run locally: In terminal run "npm run dev" and open http://localhost:5173\n' +
+      '2. Or click Settings: Connect your backend server URL.\n\n' +
+      'To test the full Studio Editor right now, click "Try Live Demo Sample" below!'
+    );
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -28,12 +42,20 @@ export default function IngestionZone({
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      if (isStaticDemo && !backendUrl) {
+        notifyStaticDemo();
+        return;
+      }
       onUploadFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
+      if (isStaticDemo && !backendUrl) {
+        notifyStaticDemo();
+        return;
+      }
       onUploadFile(e.target.files[0]);
     }
   };
@@ -41,6 +63,10 @@ export default function IngestionZone({
   const handleSubmitUrl = (e) => {
     e.preventDefault();
     if (url.trim()) {
+      if (isStaticDemo && !backendUrl) {
+        notifyStaticDemo();
+        return;
+      }
       onDownloadUrl(url.trim());
     }
   };
@@ -89,6 +115,64 @@ export default function IngestionZone({
           Automated speech transcription, intelligent speaker re-centering, and animated kinetic typography.
         </p>
       </div>
+
+      {/* GitHub Pages Static Demo Banner */}
+      {isStaticDemo && !backendUrl && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08))',
+          border: '1px solid rgba(129, 140, 248, 0.25)',
+          borderRadius: 'var(--radius-md)',
+          padding: '16px 20px',
+          marginBottom: '26px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <Sparkles size={18} color="#818cf8" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#ffffff', marginBottom: '3px' }}>
+                GitHub Pages Web Showcase (Static Demo)
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                To process your own video files or YouTube links with local AI (Whisper, OpenCV &amp; FFmpeg), run OpenClip locally with <code style={{ color: '#a5b4fc', background: 'rgba(255,255,255,0.06)', padding: '2px 5px', borderRadius: '4px' }}>npm run dev</code> on <strong>http://localhost:5173</strong>.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => samples && samples.length > 0 && onSelectSample(samples[0])}
+              className="btn-secondary"
+              style={{ padding: '7px 14px', fontSize: '0.78rem', gap: '6px' }}
+            >
+              <Play size={12} />
+              <span>Try Live Demo Sample</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="btn-primary"
+              style={{ padding: '7px 14px', fontSize: '0.78rem' }}
+            >
+              Connect Backend API
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Lowkey Pipeline Controls Strip */}
       <div style={{

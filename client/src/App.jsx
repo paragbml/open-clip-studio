@@ -49,13 +49,22 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState(() => {
     return {
       geminiApiKey: localStorage.getItem('openclip_gemini_key') || '',
-      groqApiKey: localStorage.getItem('openclip_groq_key') || ''
+      groqApiKey: localStorage.getItem('openclip_groq_key') || '',
+      backendUrl: localStorage.getItem('openclip_backend_url') || ''
     };
   });
 
+  const getApiUrl = (endpoint) => {
+    const customBackend = apiKeys.backendUrl || localStorage.getItem('openclip_backend_url') || '';
+    if (customBackend) {
+      return `${customBackend.replace(/\/$/, '')}${endpoint}`;
+    }
+    return endpoint;
+  };
+
   // Fetch initial samples & system status on mount
   useEffect(() => {
-    fetch('/api/samples')
+    fetch(getApiUrl('/api/samples'))
       .then(res => res.json())
       .then(data => setSamples(data.samples || []))
       .catch(() => {
@@ -71,7 +80,7 @@ export default function App() {
         ]);
       });
 
-    fetch('/api/status')
+    fetch(getApiUrl('/api/status'))
       .then(res => res.json())
       .then(data => setSystemStatus(data))
       .catch(() => {
@@ -83,12 +92,13 @@ export default function App() {
           ffmpegReady: false
         });
       });
-  }, []);
+  }, [apiKeys.backendUrl]);
 
   const handleSaveKeys = (newKeys) => {
     setApiKeys(newKeys);
     localStorage.setItem('openclip_gemini_key', newKeys.geminiApiKey || '');
     localStorage.setItem('openclip_groq_key', newKeys.groqApiKey || '');
+    localStorage.setItem('openclip_backend_url', newKeys.backendUrl || '');
   };
 
   useEffect(() => {
@@ -112,12 +122,21 @@ export default function App() {
 
   // Safe fetch helper to guarantee JSON parsing and clear error messages
   const safeFetchJson = async (url, options = {}) => {
-    const res = await fetch(url, options);
+    const targetUrl = url.startsWith('http') ? url : getApiUrl(url);
+    const res = await fetch(targetUrl, options);
     const text = await res.text();
     let data;
     try {
       data = JSON.parse(text);
     } catch (e) {
+      if (res.status === 405 || text.includes('405 Not Allowed')) {
+        throw new Error(
+          'GitHub Pages is a static host and cannot run FFmpeg / yt-dlp.\n\n' +
+          'To process your own videos or YouTube links:\n' +
+          '1. Run OpenClip locally with "npm run dev" (http://localhost:5173)\n' +
+          '2. Or click "Settings" (top right) to connect your Backend Server URL.'
+        );
+      }
       throw new Error(`Server returned an error (${res.status}): ${text.slice(0, 160)}`);
     }
     if (!res.ok || data.success === false) {
@@ -354,6 +373,9 @@ export default function App() {
             enableHookScan={enableHookScan}
             onEnableHookScanChange={setEnableHookScan}
             isLoading={false}
+            isStaticDemo={Boolean(!apiKeys.backendUrl && (systemStatus?.isStaticDemo || (typeof window !== 'undefined' && window.location.hostname.includes('github.io'))))}
+            backendUrl={apiKeys.backendUrl}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         )}
 
@@ -379,6 +401,7 @@ export default function App() {
             clip={selectedClip}
             videoUrl={activeVideo?.videoUrl}
             filePath={activeVideo?.filePath}
+            backendUrl={apiKeys.backendUrl}
             onBack={() => setView('clips')}
             onExport={handleExportClip}
           />

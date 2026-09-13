@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { X, Key, ShieldCheck, Zap, Sparkles } from 'lucide-react';
+import { X, Key, ShieldCheck, Zap, Sparkles, Server } from 'lucide-react';
 
 export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialKeys }) {
   const [geminiKey, setGeminiKey] = useState(initialKeys?.geminiApiKey || '');
   const [groqKey, setGroqKey] = useState(initialKeys?.groqApiKey || '');
+  const [backendUrl, setBackendUrl] = useState(initialKeys?.backendUrl || '');
 
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSaveKeys({ geminiApiKey: geminiKey.trim(), groqApiKey: groqKey.trim() });
+    onSaveKeys({
+      geminiApiKey: geminiKey.trim(),
+      groqApiKey: groqKey.trim(),
+      backendUrl: backendUrl.trim().replace(/\/$/, '')
+    });
     onClose();
   };
 
@@ -128,6 +133,31 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
             />
             <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
               Enables Whisper Large-v3 speech recognition at ~100x real-time speed. Free from console.groq.com.
+            </p>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Server size={14} color="#818cf8" />
+              Backend Server URL (Required for GitHub Pages)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. http://localhost:5000 or https://your-backend.onrender.com"
+              value={backendUrl}
+              onChange={(e) => setBackendUrl(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid var(--border-subtle)',
+                color: '#ffffff',
+                fontSize: '0.88rem'
+              }}
+            />
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+              Leave blank when running locally via <code>npm run dev</code>. When hosting on GitHub Pages, enter your running backend URL to enable video uploads &amp; YouTube downloads.
             </p>
           </div>
         </div>
