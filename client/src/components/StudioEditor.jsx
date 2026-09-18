@@ -3,7 +3,7 @@ import {
   Play, Pause, RotateCcw, Download, Sparkles, Sliders, Type, Scissors,
   ArrowLeft, Palette, Check, RefreshCw, Smartphone, Monitor, Square,
   Zap, Volume2, Crosshair, Flame, Wand2, Eye, ShieldAlert, Sparkle,
-  Users, Rows2, Maximize2, Layers
+  Users, Rows2, Maximize2, Layers, Trash2, Plus, Film, Clock
 } from 'lucide-react';
 import { drawKineticSubtitles } from '../utils/captionRenderer';
 import { formatTimeDetailed, formatTime } from '../utils/formatters';
@@ -12,6 +12,7 @@ export default function StudioEditor({
   clip,
   videoUrl,
   filePath,
+  backendUrl = '',
   onBack,
   onExport
 }) {
@@ -54,11 +55,22 @@ export default function StudioEditor({
   const [isTrackingLoading, setIsTrackingLoading] = useState(false);
   const [enableJumpCut, setEnableJumpCut] = useState(true);
   const [enableSfx, setEnableSfx] = useState(true);
-  const [sfxVolume, setSfxVolume] = useState(1.0); // 0 to 1.5
+  const [sfxVolume, setSfxVolume] = useState(0.40); // Default to 40% (0.40)
   const [jumpCutData, setJumpCutData] = useState(null);
   const [activeSfxBadge, setActiveSfxBadge] = useState(null);
   const [showHookBanner, setShowHookBanner] = useState(true);
   const [hookBannerText, setHookBannerText] = useState(clip.title ? clip.title.toUpperCase() : 'VIRAL MOMENT 🔥');
+
+  // Manual SFX insertion state
+  const [manualSfxType, setManualSfxType] = useState('vine_boom');
+  const [manualSfxTime, setManualSfxTime] = useState(0);
+  const [manualSfxLabel, setManualSfxLabel] = useState('');
+
+  // Viral Teaser Hook states
+  const [enableTeaserHook, setEnableTeaserHook] = useState(false);
+  const [teaserHookData, setTeaserHookData] = useState(null);
+  const [teaserBannerText, setTeaserBannerText] = useState('WAIT FOR IT... ⚡');
+  const [isPreviewingHook, setIsPreviewingHook] = useState(false);
 
   // Visual FX & Clipping Assets States
   const [enableSpotlight, setEnableSpotlight] = useState(false); // Natural lighting by default (not dark!)
@@ -74,11 +86,16 @@ export default function StudioEditor({
   const [words, setWords] = useState(clip.words || []);
   const [trimStart, setTrimStart] = useState(clip.start !== undefined ? clip.start : (clip.startTime !== undefined ? clip.startTime : 0));
   const [trimEnd, setTrimEnd] = useState(clip.end !== undefined ? clip.end : (clip.endTime !== undefined ? clip.endTime : (clip.duration || 30)));
+  const [jumpCutPacing, setJumpCutPacing] = useState('balanced');
 
   const clipDuration = Math.max(0.5, parseFloat((trimEnd - trimStart).toFixed(2)));
-  const previewVideoUrl = (videoUrl && (videoUrl.startsWith('./') || videoUrl.startsWith('http') || videoUrl.includes('/samples/')))
-    ? videoUrl
-    : (filePath && filePath.startsWith('/') ? `/api/clip-preview?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}` : videoUrl);
+  const backendBase = backendUrl ? backendUrl.replace(/\/$/, '') : (window.location.port === '5173' ? 'http://localhost:5000' : '');
+  const isServerAvailable = Boolean(backendUrl || window.location.port === '5173' || window.location.hostname === 'localhost');
+
+  // High-performance clip snippet URL: directly plays the exact trimmed clip interval
+  const previewVideoUrl = (filePath && isServerAvailable && !filePath.endsWith('.vtt'))
+    ? `${backendBase}/api/clip-preview?filePath=${encodeURIComponent(filePath)}&startTime=${trimStart}&duration=${clipDuration}`
+    : videoUrl;
 
   // Initialize Web Audio Engine and decode sound effect buffers (sourced from MyInstants)
   useEffect(() => {
@@ -91,7 +108,7 @@ export default function StudioEditor({
       console.warn('Web Audio not supported:', e);
     }
 
-    const sfxList = ['vine_boom', 'whoosh', 'ding', 'record_scratch', 'bruh', 'airhorn'];
+    const sfxList = ['vine_boom', 'whoosh', 'ding', 'record_scratch', 'bruh'];
     sfxList.forEach(name => {
       fetch(`./sfx/${name}.wav`)
         .then(r => r.arrayBuffer())
@@ -128,7 +145,7 @@ export default function StudioEditor({
         const source = audioCtxRef.current.createBufferSource();
         source.buffer = audioBuffersRef.current[type];
         const gain = audioCtxRef.current.createGain();
-        const baseVol = (type === 'vine_boom' || type === 'airhorn') ? 1.35 : (type === 'bruh' ? 1.25 : 1.0);
+        const baseVol = (type === 'vine_boom') ? 1.35 : (type === 'bruh' ? 1.25 : 1.0);
         gain.gain.value = baseVol * sfxVolume;
         source.connect(gain);
         gain.connect(audioCtxRef.current.destination);
@@ -140,7 +157,7 @@ export default function StudioEditor({
       const audio = sfxAudiosRef.current[type];
       if (audio) {
         audio.currentTime = 0;
-        audio.volume = Math.min(1.0, ((type === 'vine_boom' || type === 'airhorn') ? 1.0 : 0.85) * sfxVolume);
+        audio.volume = Math.min(1.0, ((type === 'vine_boom') ? 1.0 : 0.85) * sfxVolume);
         audio.play().catch(() => {});
       }
     }
@@ -181,7 +198,7 @@ export default function StudioEditor({
     setTimeout(() => setActiveSfxBadge(null), 1200);
   };
 
-  // Fetch AI Tracking and Jump-Cut calculation
+  // 1. Fetch AI Subject Tracking (only depends on clip trim window, not words)
   useEffect(() => {
     if (!filePath) return;
     let isMounted = true;
@@ -205,10 +222,6 @@ export default function StudioEditor({
           if (data.speakerLeftPercent) setSpeakerLeftPercent(data.speakerLeftPercent);
           if (data.speakerRightPercent) setSpeakerRightPercent(data.speakerRightPercent);
           setIsTrackingLoading(false);
-          // If video has two distinct speakers and user hasn't chosen yet, auto-suggest split_stacked!
-          if (data.hasTwoSpeakers && reframeMode === 'smart_track') {
-            setReframeMode('split_stacked');
-          }
         }
       })
       .catch(err => {
@@ -216,6 +229,15 @@ export default function StudioEditor({
         if (isMounted) setIsTrackingLoading(false);
       });
 
+    return () => { isMounted = false; };
+  }, [filePath, trimStart, clipDuration, backendUrl]);
+
+  // 2. Calculate Jump-Cuts (depends on words edits and pacing)
+  useEffect(() => {
+    if (!filePath) return;
+    let isMounted = true;
+
+    const backendBase = backendUrl || (typeof window !== 'undefined' && localStorage.getItem('openclip_backend_url')) || '';
     const jumpCutEndpoint = backendBase
       ? `${backendBase.replace(/\/$/, '')}/api/jump-cuts`
       : '/api/jump-cuts';
@@ -227,17 +249,25 @@ export default function StudioEditor({
         words,
         startTime: trimStart,
         duration: clipDuration,
-        silenceThreshold: 0.5
+        pacing: jumpCutPacing,
+        silenceThreshold: jumpCutPacing === 'snappy' ? 0.65 : (jumpCutPacing === 'natural' ? 1.2 : 0.85),
+        deletedIndices: words.map((w, idx) => w.deleted ? idx : null).filter(idx => idx !== null)
       })
     })
       .then(r => r.json())
       .then(data => {
-        if (isMounted) setJumpCutData(data);
+        if (isMounted) {
+          setJumpCutData(data);
+          if (data.teaserHook) {
+            setTeaserHookData(data.teaserHook);
+            if (data.teaserHook.bannerText) setTeaserBannerText(data.teaserHook.bannerText);
+          }
+        }
       })
       .catch(err => console.warn('Jump-cuts calculation error:', err));
 
     return () => { isMounted = false; };
-  }, [filePath, trimStart, clipDuration, words, backendUrl]);
+  }, [filePath, trimStart, clipDuration, words, backendUrl, jumpCutPacing]);
 
   // Exact mathematical conversion from video horizontal coordinate (0% - 100%)
   // to CSS object-position percentage, ensuring subject is in the dead-center of the 9:16 phone mockup
@@ -259,26 +289,37 @@ export default function StudioEditor({
     return Math.max(0, Math.min(100, p));
   };
 
-  // Interpolate tracking X position
+  // Interpolate tracking X position with Cinema Deadband & Smoothstep
   const getCurrentTrackingX = () => {
     if (singleSpeakerFocusMode !== 'auto_pan') {
       return singleSpeakerFocusX;
     }
-    if (!trackingData || !trackingData.trajectory || trackingData.trajectory.length === 0) {
+    const traj = trackingData?.trajectory;
+    if (!trackingData || !traj || traj.length === 0) {
       return singleSpeakerFocusX || trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50.0;
     }
+
+    // Deadband check: if speaker movement variation is under 12%, lock firmly to primary speaker anchor
+    const xs = traj.map(pt => pt.xPercent);
+    if (Math.max(...xs) - Math.min(...xs) < 12.0) {
+      return trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50.0;
+    }
+
     const t = videoRef.current ? videoRef.current.currentTime : currentTime;
-    let closest = trackingData.trajectory[0];
-    let minDiff = 9999;
-    for (let i = 0; i < trackingData.trajectory.length; i++) {
-      const pt = trackingData.trajectory[i];
-      const diff = Math.abs(pt.t - t);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = pt;
+    if (t <= traj[0].t) return traj[0].xPercent;
+    if (t >= traj[traj.length - 1].t) return traj[traj.length - 1].xPercent;
+
+    for (let i = 0; i < traj.length - 1; i++) {
+      const p0 = traj[i];
+      const p1 = traj[i + 1];
+      if (t >= p0.t && t <= p1.t) {
+        const dt = Math.max(0.01, p1.t - p0.t);
+        const u = (t - p0.t) / dt;
+        const smoothU = u * u * (3 - 2 * u);
+        return p0.xPercent + (p1.xPercent - p0.xPercent) * smoothU;
       }
     }
-    return closest.xPercent;
+    return trackingData?.primarySpeakerXPercent || 50.0;
   };
 
   // Sync canvas size with video/container
@@ -367,7 +408,8 @@ export default function StudioEditor({
       }
 
       // 2. Streamer SFX cue triggers (Vine Boom, Ding, Whoosh, Record Scratch)
-      if (enableSfx && jumpCutData?.sfxEvents) {
+      // Always play SFX events (both auto-generated and manually added)
+      if (jumpCutData?.sfxEvents) {
         jumpCutData.sfxEvents.forEach(evt => {
           if (Math.abs(vTime - evt.time) < 0.15) {
             if (lastTriggeredSfxRef.current !== evt.time) {
@@ -376,6 +418,7 @@ export default function StudioEditor({
               const badgeLabel = evt.type === 'vine_boom' ? '💥 VINE BOOM'
                 : evt.type === 'whoosh' ? '💨 WHOOSH'
                 : evt.type === 'ding' ? '🔔 DING'
+                : evt.type === 'bruh' ? '🗿 BRUH'
                 : '💿 RECORD SCRATCH';
               triggerSfxBadge(badgeLabel);
             }
@@ -475,7 +518,99 @@ export default function StudioEditor({
     setWords(updated);
   };
 
+  const handleToggleWordDelete = (index) => {
+    const updated = [...words];
+    updated[index] = { ...updated[index], deleted: !updated[index].deleted };
+    setWords(updated);
+  };
+
+  const handleAddManualSfx = () => {
+    const targetTime = parseFloat(manualSfxTime);
+    if (isNaN(targetTime) || targetTime < 0) return;
+
+    const sfxLabels = {
+      vine_boom: '💥 Vine Boom',
+      bruh: '🗿 Bruh',
+      ding: '🔔 Ding',
+      whoosh: '💨 Whoosh',
+      record_scratch: '💿 Scratch'
+    };
+
+    const newEvent = {
+      type: manualSfxType,
+      time: parseFloat(targetTime.toFixed(2)),
+      label: manualSfxLabel.trim() || sfxLabels[manualSfxType] || manualSfxType,
+      trigger: manualSfxLabel.trim() ? `Manual: "${manualSfxLabel.trim()}"` : `Manual: ${sfxLabels[manualSfxType]}`
+    };
+
+    setJumpCutData(prev => {
+      const existing = prev?.sfxEvents || [];
+      const updated = [...existing, newEvent].sort((a, b) => a.time - b.time);
+      return {
+        ...(prev || {}),
+        sfxEvents: updated
+      };
+    });
+
+    playSfx(manualSfxType);
+    triggerSfxBadge(newEvent.label);
+  };
+
+  const handleDeleteSfx = (indexToDelete) => {
+    setJumpCutData(prev => {
+      if (!prev?.sfxEvents) return prev;
+      const updated = prev.sfxEvents.filter((_, idx) => idx !== indexToDelete);
+      return {
+        ...prev,
+        sfxEvents: updated
+      };
+    });
+  };
+
+  const handleClearAllSfx = () => {
+    setJumpCutData(prev => ({
+      ...(prev || {}),
+      sfxEvents: []
+    }));
+  };
+
+  const handlePreviewTeaserHook = () => {
+    if (!teaserHookData || !videoRef.current) return;
+    setIsPreviewingHook(true);
+    triggerSfxBadge('⚡ HOOK TEASER');
+
+    const hookStartRel = (filePath && !filePath.endsWith('.vtt'))
+      ? Math.max(0, teaserHookData.start - trimStart)
+      : teaserHookData.start;
+
+    videoRef.current.currentTime = Math.max(0, hookStartRel);
+    videoRef.current.play().catch(() => {});
+
+    setTimeout(() => {
+      playSfx('whoosh');
+      triggerSfxBadge('💨 TRANSITION WHOOSH');
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(() => {});
+      }
+      setIsPreviewingHook(false);
+    }, Math.max(1000, teaserHookData.duration * 1000));
+  };
+
+  const handleSelectTeaserCandidate = (cand) => {
+    setTeaserHookData(prev => ({
+      ...(prev || {}),
+      start: cand.start,
+      end: cand.end,
+      duration: cand.duration,
+      text: cand.text
+    }));
+  };
+
   const handleExportClick = () => {
+    const activeWords = words.filter(w => !w.deleted);
+    const deletedIdxs = words.map((w, idx) => w.deleted ? idx : null).filter(idx => idx !== null);
+
     onExport({
       filePath,
       clipId: clip.id,
@@ -486,14 +621,26 @@ export default function StudioEditor({
       targetXPercent: singleSpeakerFocusX || trackingData?.avgXPercent || 50.0,
       speakerLeftPercent: speakerLeftPercent || trackingData?.speakerLeftPercent || 28.0,
       speakerRightPercent: speakerRightPercent || trackingData?.speakerRightPercent || 68.0,
-      trajectory: (singleSpeakerFocusMode === 'auto_pan' && reframeMode === 'smart_track') ? (trackingData?.trajectory || []) : [],
-      sfxEvents: enableSfx && jumpCutData ? jumpCutData.sfxEvents : [],
+      trajectory: (reframeMode === 'smart_track') ? (trackingData?.trajectory || []) : [],
+      segments: (enableJumpCut && jumpCutData?.segments) ? jumpCutData.segments : [],
+      deletedIndices: deletedIdxs,
+      // Always export all SFX events (auto + manual) — enableSfx only controls preview audio
+      sfxEvents: jumpCutData?.sfxEvents || [],
+      sfxVolume: typeof sfxVolume === 'number' ? sfxVolume : 0.40,
+      enablePunchInZoom,
       enableSpotlight,
       style,
       fontSize,
-      words,
+      words: activeWords,
       hookBannerText: showHookBanner ? hookBannerText : null,
-      showHookBanner
+      showHookBanner,
+      teaserHook: enableTeaserHook && teaserHookData ? {
+        active: true,
+        start: teaserHookData.start,
+        end: teaserHookData.end,
+        text: teaserHookData.text,
+        bannerText: teaserBannerText
+      } : null
     });
   };
 
@@ -536,7 +683,7 @@ export default function StudioEditor({
             }}>
               {clip.title}
             </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
               <span className="badge-minimal" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
                 Score: {clip.viralityScore}/100
               </span>
@@ -547,6 +694,20 @@ export default function StudioEditor({
                   Dual Speaker Detected
                 </span>
               )}
+              <span style={{
+                fontSize: '0.68rem',
+                background: 'rgba(56, 189, 248, 0.1)',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                ⚡ Agency ML (Hook:{clip.hookScore || 85}% • Flow:{clip.flowScore || 88}% • Energy:{clip.energyScore || 82}% • Climax:{clip.climaxScore || 86}%)
+              </span>
             </div>
           </div>
         </div>
@@ -926,6 +1087,33 @@ export default function StudioEditor({
                   pointerEvents: 'none'
                 }}>
                   {activeReactionBadge}
+                </div>
+              )}
+
+              {/* Dynamic Animated Teaser Hook Badge Overlay during preview */}
+              {isPreviewingHook && (
+                <div className="sfx-badge-animate" style={{
+                  position: 'absolute',
+                  top: '22px',
+                  left: '50%',
+                  zIndex: 12,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+                  color: '#ffffff',
+                  padding: '8px 18px',
+                  borderRadius: '30px',
+                  fontWeight: 900,
+                  fontSize: '0.84rem',
+                  letterSpacing: '0.04em',
+                  boxShadow: '0 0 28px rgba(99, 102, 241, 0.9), 0 4px 14px rgba(0,0,0,0.6)',
+                  border: '2px solid rgba(255, 255, 255, 0.5)',
+                  pointerEvents: 'none',
+                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>⚡ HOOK TEASER:</span>
+                  <span style={{ color: '#fde047' }}>{teaserBannerText || 'WAIT FOR IT...'}</span>
                 </div>
               )}
 
@@ -1775,6 +1963,42 @@ export default function StudioEditor({
                   />
                 </div>
 
+                {/* Pacing Mode Selector to avoid choppy video */}
+                <div style={{ marginTop: '14px' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                    Silence Cut Sensitivity &amp; Pacing:
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                    {[
+                      { id: 'natural', label: 'Natural', desc: '>1.2s (Smooth)' },
+                      { id: 'balanced', label: 'Balanced', desc: '>0.85s (Default)' },
+                      { id: 'snappy', label: 'Snappy', desc: '>0.65s (Viral)' }
+                    ].map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setJumpCutPacing(p.id)}
+                        style={{
+                          padding: '8px 6px',
+                          borderRadius: '6px',
+                          border: jumpCutPacing === p.id ? '1px solid #f59e0b' : '1px solid var(--border-subtle)',
+                          background: jumpCutPacing === p.id ? 'rgba(245, 158, 11, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                          color: jumpCutPacing === p.id ? '#ffffff' : 'var(--text-dim)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700 }}>{p.label}</span>
+                        <span style={{ fontSize: '0.68rem', opacity: 0.8 }}>{p.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {jumpCutData && (
                   <div style={{
                     display: 'grid',
@@ -1871,7 +2095,7 @@ export default function StudioEditor({
                 <div style={{ marginBottom: '16px' }}>
                   <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>Streamer Soundboard (Authentic MyInstants SFX):</span>
-                    <span style={{ fontSize: '0.7rem', color: '#38bdf8' }}>6 Active Sounds</span>
+                    <span style={{ fontSize: '0.7rem', color: '#38bdf8' }}>5 Active Sounds</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                     <button
@@ -1909,68 +2133,409 @@ export default function StudioEditor({
                     >
                       <span>🗿 Bruh</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* 2. Add Manual SFX on Required Timestamp */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 700, color: '#c7d2fe' }}>
+                      <Plus size={14} color="#818cf8" />
+                      <span>Add SFX on Required Timestamp</span>
+                    </div>
                     <button
-                      onClick={() => { playSfx('airhorn'); triggerSfxBadge('🎺 AIRHORN'); }}
+                      type="button"
+                      onClick={() => setManualSfxTime(parseFloat(currentTime.toFixed(1)))}
                       className="btn-secondary"
-                      style={{ fontSize: '0.78rem', padding: '8px 6px', justifyContent: 'center' }}
+                      style={{ fontSize: '0.72rem', padding: '3px 8px', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', gap: '4px' }}
                     >
-                      <span>🎺 Airhorn</span>
+                      <Clock size={11} />
+                      <span>Use Playhead ({currentTime.toFixed(1)}s)</span>
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                        Timestamp (sec)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max={clipDuration}
+                        value={manualSfxTime}
+                        onChange={(e) => setManualSfxTime(parseFloat(e.target.value) || 0)}
+                        style={{
+                          width: '100%',
+                          background: 'rgba(0, 0, 0, 0.35)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '6px',
+                          color: '#ffffff',
+                          padding: '6px 10px',
+                          fontSize: '0.8rem',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                        Sound Effect
+                      </label>
+                      <select
+                        value={manualSfxType}
+                        onChange={(e) => setManualSfxType(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#0d1117',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '6px',
+                          color: '#ffffff',
+                          padding: '6px 10px',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="vine_boom">💥 Vine Boom</option>
+                        <option value="bruh">🗿 Bruh</option>
+                        <option value="ding">🔔 Ding / Insight</option>
+                        <option value="whoosh">💨 Fast Whoosh</option>
+                        <option value="record_scratch">💿 Record Scratch</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Optional cue note (e.g. Punchline drop)..."
+                      value={manualSfxLabel}
+                      onChange={(e) => setManualSfxLabel(e.target.value)}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(0, 0, 0, 0.35)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: '6px',
+                        color: '#ffffff',
+                        padding: '6px 10px',
+                        fontSize: '0.78rem',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddManualSfx}
+                      className="btn-primary"
+                      style={{
+                        fontSize: '0.78rem',
+                        padding: '6px 14px',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <Plus size={13} />
+                      <span>Add Cue</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Scheduled Cues Timeline */}
+                {/* 3. Scheduled Cues Timeline */}
                 <div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>
-                    Scheduled SFX Timeline Events ({jumpCutData?.sfxEvents?.length || 0}):
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      Scheduled SFX Timeline Events ({jumpCutData?.sfxEvents?.length || 0}):
+                    </div>
+                    {jumpCutData?.sfxEvents?.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllSfx}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ef4444',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <Trash2 size={11} />
+                        <span>Clear All</span>
+                      </button>
+                    )}
                   </div>
+
                   <div style={{
-                    maxHeight: '160px',
+                    maxHeight: '180px',
                     overflowY: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '6px'
                   }}>
-                    {jumpCutData?.sfxEvents?.map((evt, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '6px 10px',
-                          background: 'rgba(0,0,0,0.25)',
-                          borderRadius: '6px',
-                          fontSize: '0.78rem'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: evt.type === 'vine_boom' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.2)',
-                            color: evt.type === 'vine_boom' ? '#f87171' : '#818cf8',
-                            fontWeight: 700
-                          }}>
-                            {evt.type === 'vine_boom' ? '💥 Vine Boom' : evt.type === 'whoosh' ? '💨 Whoosh' : evt.type === 'ding' ? '🔔 Ding' : '💿 Scratch'}
-                          </span>
-                          <span style={{ color: '#ffffff', fontWeight: 600 }}>{evt.trigger || evt.label}</span>
-                        </div>
-                        <button
-                          onClick={() => handleSeek(evt.time)}
+                    {(!jumpCutData?.sfxEvents || jumpCutData.sfxEvents.length === 0) ? (
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)', fontStyle: 'italic', padding: '8px', textAlign: 'center' }}>
+                        No SFX cues scheduled. Add sound effects above at any timestamp!
+                      </div>
+                    ) : (
+                      jumpCutData.sfxEvents.map((evt, i) => (
+                        <div
+                          key={i}
                           style={{
-                            color: 'var(--text-muted)',
-                            background: 'transparent',
-                            fontSize: '0.74rem',
-                            textDecoration: 'underline'
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '6px 10px',
+                            background: 'rgba(0,0,0,0.3)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            borderRadius: '6px',
+                            fontSize: '0.78rem'
                           }}
                         >
-                          {evt.time.toFixed(1)}s
-                        </button>
-                      </div>
-                    ))}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <span style={{
+                              padding: '2px 7px',
+                              borderRadius: '4px',
+                              background: evt.type === 'vine_boom' ? 'rgba(239, 68, 68, 0.2)' : evt.type === 'bruh' ? 'rgba(245, 158, 11, 0.2)' : evt.type === 'ding' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(99, 102, 241, 0.2)',
+                              color: evt.type === 'vine_boom' ? '#f87171' : evt.type === 'bruh' ? '#fbbf24' : evt.type === 'ding' ? '#4ade80' : '#818cf8',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {evt.type === 'vine_boom' ? '💥 Vine Boom' : evt.type === 'whoosh' ? '💨 Whoosh' : evt.type === 'ding' ? '🔔 Ding' : evt.type === 'bruh' ? '🗿 Bruh' : '💿 Scratch'}
+                            </span>
+                            <span style={{ color: '#ffffff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {evt.trigger || evt.label}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleSeek(evt.time)}
+                              style={{
+                                color: 'var(--text-muted)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: 'none',
+                                padding: '2px 7px',
+                                borderRadius: '4px',
+                                fontSize: '0.74rem',
+                                cursor: 'pointer'
+                              }}
+                              title="Seek player to this SFX"
+                            >
+                              {evt.time.toFixed(1)}s
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSfx(i)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                opacity: 0.8
+                              }}
+                              title="Delete this sound effect"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
+              </div>
+
+              {/* 4. Viral Teaser Hook Video Prepend Feature */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: enableTeaserHook ? '1px solid rgba(99, 102, 241, 0.45)' : '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                transition: 'all 0.2s ease'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enableTeaserHook ? '14px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '8px',
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '1px solid rgba(99, 102, 241, 0.3)'
+                    }}>
+                      <Film size={17} color="#818cf8" />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#ffffff' }}>
+                        Viral Teaser Hook Video Prepend
+                      </div>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                        Prepend an engaging 2–3s teaser hook clip before video starts with a whoosh cut
+                      </div>
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: enableTeaserHook ? '#818cf8' : 'var(--text-muted)' }}>
+                      {enableTeaserHook ? 'YES (Enabled)' : 'NO (Disabled)'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={enableTeaserHook}
+                      onChange={(e) => setEnableTeaserHook(e.target.checked)}
+                      style={{ width: '18px', height: '18px', accentColor: '#6366f1', cursor: 'pointer' }}
+                    />
+                  </label>
+                </div>
+
+                {enableTeaserHook && (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    paddingTop: '12px',
+                    borderTop: '1px solid var(--border-subtle)'
+                  }}>
+                    {/* Detected Hook Highlight Card */}
+                    <div style={{
+                      background: 'rgba(99, 102, 241, 0.08)',
+                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      borderRadius: '8px',
+                      padding: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase' }}>
+                          🎯 AI Climax Hook Selected ({teaserHookData?.duration || 2.4}s)
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          Original Timestamp: {teaserHookData?.start || 0}s - {teaserHookData?.end || 2.5}s
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#ffffff', fontStyle: 'italic', marginBottom: '10px' }}>
+                        "{teaserHookData?.text || 'Finding best cliffhanger hook from clip...'}"
+                      </div>
+
+                      {/* Action Button: Preview Hook Intro */}
+                      <button
+                        type="button"
+                        onClick={handlePreviewTeaserHook}
+                        className="btn-primary"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          fontSize: '0.8rem',
+                          justifyContent: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Play size={13} fill="currentColor" />
+                        <span>{isPreviewingHook ? 'Previewing Hook + Cut...' : '▶ Preview Teaser Hook (+ Transition Whoosh)'}</span>
+                      </button>
+                    </div>
+
+                    {/* Alternate Candidate Hooks */}
+                    {teaserHookData?.candidates?.length > 1 && (
+                      <div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
+                          Select Alternate Hook Sentence:
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                          {teaserHookData.candidates.map((cand, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleSelectTeaserCandidate(cand)}
+                              style={{
+                                textAlign: 'left',
+                                background: teaserHookData.start === cand.start ? 'rgba(99, 102, 241, 0.2)' : 'rgba(0, 0, 0, 0.25)',
+                                border: teaserHookData.start === cand.start ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                fontSize: '0.76rem',
+                                color: teaserHookData.start === cand.start ? '#ffffff' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '82%' }}>
+                                "{cand.text}"
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: '#818cf8', fontWeight: 600 }}>
+                                {cand.duration}s
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Teaser Hook Banner Overlay Text */}
+                    <div>
+                      <label style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>
+                        Teaser Intro Headline Banner
+                      </label>
+                      <input
+                        type="text"
+                        value={teaserBannerText}
+                        onChange={(e) => setTeaserBannerText(e.target.value)}
+                        placeholder="e.g. WAIT FOR IT... ⚡"
+                        style={{
+                          width: '100%',
+                          background: 'rgba(0,0,0,0.35)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '6px',
+                          color: '#ffffff',
+                          padding: '7px 10px',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                          marginBottom: '6px'
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {['WAIT FOR IT... ⚡', 'WATCH TILL THE END 🤫', 'WAIT WHAT?! 🤯', 'DON\'T SKIP ⚠️'].map(preset => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setTeaserBannerText(preset)}
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '3px 8px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              borderRadius: '4px',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2356,12 +2921,31 @@ export default function StudioEditor({
             </div>
           )}
 
-          {/* Tab 5: Words & Emojis Editor */}
+          {/* Tab 5: Words & Emojis Editor / Edit-by-Transcript */}
           {activeTab === 'words' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                Click any word to seek the player. Edit text or add emojis to boost viewer engagement.
-              </p>
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '12px 14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#818cf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Scissors size={14} />
+                    Edit-by-Transcript (Timeline Slicing)
+                  </span>
+                  {words.filter(w => w.deleted).length > 0 && (
+                    <span className="badge-minimal" style={{ fontSize: '0.72rem', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                      {words.filter(w => w.deleted).length} cut
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Click the scissor icon to cut out filler words, stutters, or tangents. The video timeline will automatically splice them out in both the player and the exported video!
+                </p>
+              </div>
+
               <div style={{
                 maxHeight: '440px',
                 overflowY: 'auto',
@@ -2373,6 +2957,8 @@ export default function StudioEditor({
                 {words.map((w, idx) => {
                   const currentAbs = trimStart + currentTime;
                   const isActive = currentAbs >= w.start && currentAbs <= w.end;
+                  const isDeleted = Boolean(w.deleted);
+
                   return (
                     <div
                       key={idx}
@@ -2382,8 +2968,13 @@ export default function StudioEditor({
                         gap: '10px',
                         padding: '8px 12px',
                         borderRadius: 'var(--radius-sm)',
-                        background: isActive ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.02)',
-                        border: isActive ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
+                        background: isDeleted
+                          ? 'rgba(239, 68, 68, 0.07)'
+                          : (isActive ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.02)'),
+                        border: isDeleted
+                          ? '1px dashed rgba(239, 68, 68, 0.35)'
+                          : (isActive ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)'),
+                        opacity: isDeleted ? 0.6 : 1,
                         transition: 'all 0.15s ease'
                       }}
                     >
@@ -2392,47 +2983,75 @@ export default function StudioEditor({
                         onClick={() => handleSeek(Math.max(0, Math.min(clipDuration, w.start - trimStart)))}
                         style={{
                           fontSize: '0.74rem',
-                          color: '#818cf8',
-                          background: 'rgba(99, 102, 241, 0.1)',
+                          color: isDeleted ? '#ef4444' : '#818cf8',
+                          background: isDeleted ? 'rgba(239, 68, 68, 0.1)' : 'rgba(99, 102, 241, 0.1)',
                           padding: '3px 7px',
                           borderRadius: '4px',
-                          fontWeight: 600
+                          fontWeight: 600,
+                          cursor: 'pointer'
                         }}
                       >
                         {formatTime(w.start)}
                       </button>
 
-                      {/* Word Input */}
+                      {/* Word Input / Struck-through */}
                       <input
                         type="text"
                         value={w.word}
+                        disabled={isDeleted}
                         onChange={(e) => handleWordEdit(idx, e.target.value)}
                         style={{
                           flex: 1,
                           background: 'transparent',
                           border: 'none',
-                          color: '#ffffff',
+                          color: isDeleted ? 'rgba(255, 255, 255, 0.4)' : '#ffffff',
+                          textDecoration: isDeleted ? 'line-through' : 'none',
                           fontWeight: 600,
                           fontSize: '0.9rem'
                         }}
                       />
 
-                      {/* Emoji Input */}
-                      <input
-                        type="text"
-                        placeholder="Emoji"
-                        value={w.emoji || ''}
-                        onChange={(e) => handleWordEmojiChange(idx, e.target.value)}
+                      {/* Cut / Restore Word Button (Timeline Slicing) */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleWordDelete(idx)}
+                        title={isDeleted ? "Restore word to video" : "Cut word from video"}
                         style={{
-                          width: '44px',
-                          textAlign: 'center',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid var(--border-subtle)',
+                          padding: '4px 8px',
                           borderRadius: '4px',
-                          padding: '3px',
-                          fontSize: '0.9rem'
+                          border: isDeleted ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-subtle)',
+                          background: isDeleted ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          color: isDeleted ? '#ef4444' : 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
                         }}
-                      />
+                      >
+                        <Scissors size={12} />
+                        <span>{isDeleted ? 'CUT' : 'Cut'}</span>
+                      </button>
+
+                      {/* Emoji Input */}
+                      {!isDeleted && (
+                        <input
+                          type="text"
+                          placeholder="Emoji"
+                          value={w.emoji || ''}
+                          onChange={(e) => handleWordEmojiChange(idx, e.target.value)}
+                          style={{
+                            width: '44px',
+                            textAlign: 'center',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: '4px',
+                            padding: '3px',
+                            fontSize: '0.9rem'
+                          }}
+                        />
+                      )}
                     </div>
                   );
                 })}

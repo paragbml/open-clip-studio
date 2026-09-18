@@ -6,6 +6,7 @@ import ClipList from './components/ClipList';
 import StudioEditor from './components/StudioEditor';
 import ExportModal from './components/ExportModal';
 import ApiSettingsModal from './components/ApiSettingsModal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   const [samples, setSamples] = useState([]);
@@ -50,6 +51,7 @@ export default function App() {
     return {
       geminiApiKey: localStorage.getItem('openclip_gemini_key') || '',
       groqApiKey: localStorage.getItem('openclip_groq_key') || '',
+      githubToken: localStorage.getItem('openclip_github_token') || '',
       backendUrl: localStorage.getItem('openclip_backend_url') || ''
     };
   });
@@ -82,7 +84,13 @@ export default function App() {
 
     fetch(getApiUrl('/api/status'))
       .then(res => res.json())
-      .then(data => setSystemStatus(data))
+      .then(data => {
+        setSystemStatus(data);
+        if (data.githubToken && !localStorage.getItem('openclip_github_token')) {
+          localStorage.setItem('openclip_github_token', data.githubToken);
+          setApiKeys(prev => ({ ...prev, githubToken: data.githubToken }));
+        }
+      })
       .catch(() => {
         setSystemStatus({
           status: 'ok',
@@ -98,6 +106,7 @@ export default function App() {
     setApiKeys(newKeys);
     localStorage.setItem('openclip_gemini_key', newKeys.geminiApiKey || '');
     localStorage.setItem('openclip_groq_key', newKeys.groqApiKey || '');
+    localStorage.setItem('openclip_github_token', newKeys.githubToken || '');
     localStorage.setItem('openclip_backend_url', newKeys.backendUrl || '');
   };
 
@@ -169,6 +178,7 @@ export default function App() {
           vttPath,
           geminiApiKey: apiKeys.geminiApiKey,
           groqApiKey: apiKeys.groqApiKey,
+          githubToken: apiKeys.githubToken,
           scanMode,
           enableHookScan
         })
@@ -202,55 +212,88 @@ export default function App() {
       const fallbackClips = [
         {
           id: 'demo_clip_1',
-          title: 'The AI Repurposing Revolution 🔥',
+          title: 'The Single Most Effective Brain Protocol ⚡',
+          hookType: 'Actionable Advice',
           start: 0,
           end: 32.5,
           startTime: 0,
           endTime: 32.5,
           duration: 32.5,
-          viralityScore: 98,
-          viralityReason: 'High viral potential: Opens with strong curiosity hook and actionable insights.',
-          tags: ['#shorts', '#ai', '#viral', '#tech'],
+          viralityScore: 97,
+          hookScore: 94,
+          flowScore: 92,
+          energyScore: 89,
+          climaxScore: 96,
+          viralityReason: 'Agency ML Analysis: Rapid 0.8s hook-to-setup velocity, featuring high-retention curiosity opening, optimal speech cadence (165 WPM), and decisive mic-drop payoff.',
+          mlModel: 'OpenClip-Proprietary-v4-46D-Multimodal',
+          semanticMargin: 0.94,
+          acousticPower: 0.72,
+          hookVelocity: 0.96,
+          survivalProbability: 0.94,
+          mlVerified: true,
+          hashtags: ['#shorts', '#brainhack', '#podcast', '#health'],
+          suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels'],
           words: [
-            { word: 'All', start: 0.1, end: 0.35 },
-            { word: 'right,', start: 0.4, end: 0.65 },
-            { word: "what's", start: 0.7, end: 0.95 },
-            { word: 'up', start: 1.0, end: 1.25 },
-            { word: 'everybody,', start: 1.3, end: 1.7 },
-            { word: 'today', start: 1.8, end: 2.1 },
-            { word: 'we', start: 2.15, end: 2.3 },
-            { word: 'are', start: 2.35, end: 2.5 },
-            { word: 'building', start: 2.55, end: 2.9 },
-            { word: 'the', start: 2.95, end: 3.1 },
-            { word: 'future', start: 3.15, end: 3.45 },
-            { word: 'of', start: 3.5, end: 3.65 },
-            { word: 'AI', start: 3.7, end: 4.0 },
-            { word: 'content', start: 4.05, end: 4.4 },
-            { word: 'creation.', start: 4.45, end: 4.9 }
+            { word: 'The', start: 0.1, end: 0.28 },
+            { word: 'best', start: 0.29, end: 0.55 },
+            { word: 'way', start: 0.56, end: 0.78 },
+            { word: 'to', start: 0.79, end: 0.95 },
+            { word: 'spike', start: 0.96, end: 1.35 },
+            { word: 'morning', start: 1.36, end: 1.7 },
+            { word: 'energy', start: 1.71, end: 2.1 },
+            { word: 'is', start: 2.15, end: 2.3 },
+            { word: 'to', start: 2.35, end: 2.5 },
+            { word: 'get', start: 2.55, end: 2.75 },
+            { word: 'bright', start: 2.76, end: 3.1 },
+            { word: 'light', start: 3.15, end: 3.45 },
+            { word: 'in', start: 3.46, end: 3.6 },
+            { word: 'your', start: 3.61, end: 3.75 },
+            { word: 'eyes', start: 3.76, end: 4.1 },
+            { word: 'within', start: 4.15, end: 4.45 },
+            { word: 'the', start: 4.46, end: 4.6 },
+            { word: 'first', start: 4.61, end: 4.9 },
+            { word: 'thirty', start: 4.95, end: 5.3 },
+            { word: 'minutes', start: 5.35, end: 5.75 },
+            { word: 'of', start: 5.76, end: 5.9 },
+            { word: 'your', start: 5.91, end: 6.1 },
+            { word: 'day.', start: 6.15, end: 6.6 }
           ]
         },
         {
           id: 'demo_clip_2',
-          title: 'How Opus Clip Really Works 🗣️',
+          title: 'Building An Unshakeable Mindset 🧠',
+          hookType: 'High-Stakes Condition',
           start: 5,
           end: 30,
           startTime: 5,
           endTime: 30,
           duration: 25,
-          viralityScore: 92,
-          viralityReason: 'Technical breakdown with direct value proposition for creators.',
-          tags: ['#podcast', '#interview', '#editing'],
+          viralityScore: 93,
+          hookScore: 90,
+          flowScore: 91,
+          energyScore: 86,
+          climaxScore: 92,
+          viralityReason: 'Agency ML Analysis: High-voltage performance thesis addressing resilience under pressure with complete conversational mic-drop closure.',
+          mlModel: 'OpenClip-Proprietary-v4-46D-Multimodal',
+          semanticMargin: 0.91,
+          acousticPower: 0.68,
+          hookVelocity: 0.88,
+          survivalProbability: 0.89,
+          mlVerified: true,
+          hashtags: ['#mindset', '#discipline', '#focus'],
+          suitablePlatforms: ['TikTok', 'YouTube Shorts', 'Instagram Reels'],
           words: [
             { word: 'When', start: 5.2, end: 5.5 },
             { word: 'you', start: 5.55, end: 5.75 },
-            { word: 'repurpose', start: 5.8, end: 6.3 },
-            { word: 'video,', start: 6.35, end: 6.7 },
-            { word: 'framing', start: 6.8, end: 7.2 },
-            { word: 'and', start: 7.25, end: 7.4 },
-            { word: 'pacing', start: 7.45, end: 7.85 },
-            { word: 'matter', start: 7.9, end: 8.2 },
-            { word: 'the', start: 8.25, end: 8.4 },
-            { word: 'most.', start: 8.45, end: 8.9 }
+            { word: 'build', start: 5.8, end: 6.1 },
+            { word: 'an', start: 6.15, end: 6.3 },
+            { word: 'unshakeable', start: 6.35, end: 6.9 },
+            { word: 'mindset,', start: 6.95, end: 7.4 },
+            { word: 'you', start: 7.45, end: 7.65 },
+            { word: 'never', start: 7.7, end: 8.05 },
+            { word: 'collapse', start: 8.1, end: 8.5 },
+            { word: 'under', start: 8.55, end: 8.85 },
+            { word: 'pressure.', start: 8.9, end: 9.4 }
           ]
         }
       ];
@@ -362,50 +405,52 @@ export default function App() {
       />
 
       <main style={{ flex: 1 }}>
-        {view === 'ingestion' && (
-          <IngestionZone
-            samples={samples}
-            onSelectSample={handleSelectSample}
-            onUploadFile={handleUploadFile}
-            onDownloadUrl={handleDownloadUrl}
-            scanMode={scanMode}
-            onScanModeChange={setScanMode}
-            enableHookScan={enableHookScan}
-            onEnableHookScanChange={setEnableHookScan}
-            isLoading={false}
-            isStaticDemo={Boolean(!apiKeys.backendUrl && (systemStatus?.isStaticDemo || (typeof window !== 'undefined' && window.location.hostname.includes('github.io'))))}
-            backendUrl={apiKeys.backendUrl}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-          />
-        )}
+        <ErrorBoundary onBack={() => setView('clips')}>
+          {view === 'ingestion' && (
+            <IngestionZone
+              samples={samples}
+              onSelectSample={handleSelectSample}
+              onUploadFile={handleUploadFile}
+              onDownloadUrl={handleDownloadUrl}
+              scanMode={scanMode}
+              onScanModeChange={setScanMode}
+              enableHookScan={enableHookScan}
+              onEnableHookScanChange={setEnableHookScan}
+              isLoading={false}
+              isStaticDemo={Boolean(!apiKeys.backendUrl && (systemStatus?.isStaticDemo || (typeof window !== 'undefined' && window.location.hostname.includes('github.io'))))}
+              backendUrl={apiKeys.backendUrl}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          )}
 
-        {view === 'processing' && (
-          <ProcessingStatus
-            step={processingStep}
-            progressText={processingText}
-            onCancel={() => setView('ingestion')}
-          />
-        )}
+          {view === 'processing' && (
+            <ProcessingStatus
+              step={processingStep}
+              progressText={processingText}
+              onCancel={() => setView('ingestion')}
+            />
+          )}
 
-        {view === 'clips' && (
-          <ClipList
-            clips={clips}
-            videoMeta={activeVideo?.meta}
-            onSelectClip={handleSelectClip}
-            onNewVideo={handleNewVideo}
-          />
-        )}
+          {view === 'clips' && (
+            <ClipList
+              clips={clips}
+              videoMeta={activeVideo?.meta}
+              onSelectClip={handleSelectClip}
+              onNewVideo={handleNewVideo}
+            />
+          )}
 
-        {view === 'studio' && selectedClip && (
-          <StudioEditor
-            clip={selectedClip}
-            videoUrl={activeVideo?.videoUrl}
-            filePath={activeVideo?.filePath}
-            backendUrl={apiKeys.backendUrl}
-            onBack={() => setView('clips')}
-            onExport={handleExportClip}
-          />
-        )}
+          {view === 'studio' && selectedClip && (
+            <StudioEditor
+              clip={selectedClip}
+              videoUrl={activeVideo?.videoUrl}
+              filePath={activeVideo?.filePath}
+              backendUrl={apiKeys.backendUrl}
+              onBack={() => setView('clips')}
+              onExport={handleExportClip}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Export Rendering Modal */}

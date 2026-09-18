@@ -52,13 +52,17 @@ export function drawKineticSubtitles(ctx, canvasWidth, canvasHeight, currentTime
     ctx.restore();
   }
 
+  // Filter out deleted words from timeline slicing
+  const activeWords = (words || []).filter(w => !w.deleted);
+  if (activeWords.length === 0) return;
+
   // Smart Natural Phrase Chunking: breaks on sentence punctuation, speech pauses >0.35s, or max words
   const maxChunkWords = style === 'hormozi' ? 3 : 4;
   const chunks = [];
   let currentGroup = [];
 
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i];
+  for (let i = 0; i < activeWords.length; i++) {
+    const w = activeWords[i];
     currentGroup.push(w);
 
     const raw = (w.word || '').trim();

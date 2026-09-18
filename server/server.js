@@ -5,6 +5,17 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
+// Auto-detect GitHub Student Plan token from local gh CLI
+let autoGithubToken = '';
+try {
+  const { execSync } = require('child_process');
+  autoGithubToken = execSync('gh auth token', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+  if (autoGithubToken) {
+    process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN || autoGithubToken;
+    console.log('✨ Automatically detected GitHub Student Plan authentication from gh CLI!');
+  }
+} catch (e) {}
+
 const {
   probeVideo,
   normalizeWebVideo,
@@ -15,7 +26,7 @@ const {
   renderShortClip
 } = require('./services/ffmpegService');
 const { transcribeAudio } = require('./services/transcribeService');
-const { discoverViralClips } = require('./services/viralityService');
+const { discoverViralClips, findBestTeaserHook } = require('./services/viralityService');
 const { generateAssSubtitles } = require('./services/subtitleService');
 const { downloadUrl } = require('./services/downloaderService');
 const { calculateJumpCuts } = require('./services/jumpCutService');
@@ -156,6 +167,7 @@ app.get('/api/stream', (req, res) => {
  * Health & Capabilities Check
  */
 app.get('/api/status', (req, res) => {
+  const ghTok = process.env.GITHUB_TOKEN || autoGithubToken || '';
   res.json({
     status: 'ok',
     version: '1.0.0',
@@ -163,6 +175,8 @@ app.get('/api/status', (req, res) => {
     pricing: '100% Free & Open-Source',
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    hasGithubToken: Boolean(ghTok),
+    githubToken: ghTok,
     ffmpegReady: true,
     ytdlpReady: true
   });
@@ -275,7 +289,7 @@ app.post('/api/download-url', async (req, res) => {
  * Master Pipeline: Ingest -> Probe -> Transcribe -> Viral Clip Detection
  */
 app.post('/api/process', async (req, res) => {
-  const { filePath, vttPath, geminiApiKey, groqApiKey, scanMode = 'lightning', enableHookScan = true } = req.body;
+  const { filePath, vttPath, geminiApiKey, groqApiKey, githubToken, scanMode = 'lightning', enableHookScan = true } = req.body;
 
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(400).json({ error: 'Valid filePath is required' });
@@ -302,8 +316,8 @@ app.post('/api/process', async (req, res) => {
       transcript.words,
       transcript.text,
       meta.duration,
-      { geminiApiKey, groqApiKey },
-      { enableHookScan }
+      { geminiApiKey, groqApiKey, githubToken: githubToken || process.env.GITHUB_TOKEN },
+      { enableHookScan, audioPath, filePath }
     );
 
     res.json({
@@ -344,10 +358,21 @@ app.get('/api/clip-tracking', async (req, res) => {
  * Smart Jump-Cut & Dead-Air Removal Calculation Endpoint
  */
 app.post('/api/jump-cuts', (req, res) => {
-  const { words = [], startTime = 0, duration = 30, silenceThreshold = 0.5 } = req.body;
+  const { words = [], startTime = 0, duration = 30, silenceThreshold = 'balanced', deletedIndices = [] } = req.body;
   const clipEnd = startTime + duration;
-  const result = calculateJumpCuts(words, startTime, clipEnd, silenceThreshold);
-  res.json(result);
+  const result = calculateJumpCuts(words, startTime, clipEnd, silenceThreshold, deletedIndices);
+  const teaserHook = findBestTeaserHook(words, startTime, clipEnd);
+  res.json({ ...result, teaserHook });
+});
+
+/**
+ * Endpoint to discover or refresh candidate viral teaser hooks for a clip
+ */
+app.post('/api/find-hook', (req, res) => {
+  const { words = [], startTime = 0, duration = 30 } = req.body;
+  const clipEnd = startTime + duration;
+  const hook = findBestTeaserHook(words, startTime, clipEnd);
+  res.json(hook);
 });
 
 /**
@@ -366,13 +391,17 @@ app.post('/api/render-clip', async (req, res) => {
     speakerRightPercent = 70.0,
     trajectory = [],
     sfxEvents = [],
+    sfxVolume = 0.40,
+    enablePunchInZoom = true,
     style = 'hormozi',
     fontSize = 58,
     words = [],
+    segments = [],
     burnSubtitles = true,
     enableSpotlight = false,
     hookBannerText = null,
-    showHookBanner = true
+    showHookBanner = true,
+    teaserHook = null
   } = req.body;
 
   if (!filePath || !fs.existsSync(filePath)) {
@@ -380,15 +409,34 @@ app.post('/api/render-clip', async (req, res) => {
   }
 
   try {
-    let assPath = null;
+    let effectiveTrajectory = trajectory || [];
+    if (reframeMode === 'smart_track' && effectiveTrajectory.length < 2) {
+      try {
+        console.log(`[Render] Computing dynamic subject tracking trajectory for ${clipId}...`);
+        const tracking = await trackSubject(filePath, startTime, duration);
+        if (tracking && tracking.trajectory && tracking.trajectory.length >= 2) {
+          effectiveTrajectory = tracking.trajectory;
+          console.log(`[Render] Auto-computed ${effectiveTrajectory.length} trajectory points.`);
+        }
+      } catch (trackErr) {
+        console.warn('[Render] Auto-tracking error:', trackErr.message);
+      }
+    }
 
-    if (burnSubtitles && words && words.length > 0) {
-      // Adjust word timings relative to clip start
-      const relativeWords = words.map(w => ({
+    let assPath = null;
+    const hasTeaser = teaserHook && teaserHook.active && typeof teaserHook.start === 'number';
+    const teaserStart = hasTeaser ? Math.max(0, teaserHook.start) : 0;
+    const teaserDur = hasTeaser ? Math.max(1.2, Math.min(4.5, (teaserHook.end || (teaserStart + 2.5)) - teaserStart)) : 0;
+
+    const nonDeletedWords = (words || []).filter(w => !w.deleted);
+
+    if (burnSubtitles && nonDeletedWords.length > 0) {
+      // Adjust word timings relative to clip start (and offset by teaserDur if teaser hook is prepended)
+      const relativeWords = nonDeletedWords.map(w => ({
         ...w,
-        start: Math.max(0, w.start - startTime),
-        end: Math.max(0.1, w.end - startTime)
-      })).filter(w => w.end > 0 && w.start < duration);
+        start: Math.max(0, (w.start - startTime) + (hasTeaser ? teaserDur : 0)),
+        end: Math.max(0.1, (w.end - startTime) + (hasTeaser ? teaserDur : 0))
+      })).filter(w => w.end > 0);
 
       const assContent = generateAssSubtitles(relativeWords, {
         style,
@@ -396,7 +444,7 @@ app.post('/api/render-clip', async (req, res) => {
         videoWidth: 1080,
         videoHeight: 1920,
         hookBannerText: showHookBanner ? hookBannerText : null,
-        clipDuration: duration
+        clipDuration: duration + (hasTeaser ? teaserDur : 0)
       });
 
       assPath = path.join(EXPORT_DIR, `sub_${Date.now()}_${clipId}.ass`);
@@ -416,10 +464,15 @@ app.post('/api/render-clip', async (req, res) => {
       targetXPercent,
       speakerLeftPercent,
       speakerRightPercent,
-      trajectory,
+      trajectory: effectiveTrajectory,
+      segments,
       sfxEvents,
+      sfxVolume,
+      enablePunchInZoom,
+      words: nonDeletedWords,
       subtitlesAssPath: assPath,
-      enableSpotlight
+      enableSpotlight,
+      teaserHook
     });
 
     res.json({

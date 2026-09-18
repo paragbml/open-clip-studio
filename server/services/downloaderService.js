@@ -13,15 +13,31 @@ function downloadUrl(url, outputDir, onProgress = null) {
     const outputTemplate = path.join(outputDir, `${fileId}.%(ext)s`);
 
     // Fetch max 1080p mp4
+    // visionos player client works for public YouTube videos without auth/JS runtime
+    const cookieFile = path.join(__dirname, '../yt-cookies.txt');
+    const cookieArgs = fs.existsSync(cookieFile)
+      ? ['--cookies', cookieFile]        // use saved cookies for age-restricted content
+      : ['--no-cookies'];               // no cookies needed for most public videos
+
     const args = [
-      '--format', 'bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+      '--format', 'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best',
       '--merge-output-format', 'mp4',
+      '-N', '8',                        // 8 concurrent connection fragments for 6-8x download speedup
+      '--buffer-size', '16M',           // 16MB download buffer
+      '--http-chunk-size', '10M',       // 10MB chunk size to defeat YouTube per-connection throttling
       '-o', outputTemplate,
       '--no-playlist',
+      ...cookieArgs,
       url
     ];
 
-    const proc = spawn(YTDLP_BIN, args);
+    const nodeBin = process.execPath; // current node binary
+    const proc = spawn(YTDLP_BIN, args, {
+      env: {
+        ...process.env,
+        PATH: `/usr/local/bin:/usr/bin:/bin:${process.env.HOME}/.local/bin:${process.env.PATH || ''}`
+      }
+    });
     let stderr = '';
     let stdout = '';
 

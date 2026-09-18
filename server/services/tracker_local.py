@@ -5,205 +5,202 @@ import subprocess
 import numpy as np
 
 try:
-    import onnxruntime as ort
+    import cv2
 except ImportError:
-    print("Error: onnxruntime not found", file=sys.stderr)
+    print("Error: cv2 not found", file=sys.stderr)
     sys.exit(1)
 
-MODEL_PATH = os.path.expanduser("~/.cache/huggingface/hub/models--s1777--yolo-v8n-onnx/snapshots/8723d02c28498aebfbca2a7b4df49bf231b4737b/yolov8n.onnx")
-
-def nms(boxes, scores, iou_thresh=0.45):
-    """Vectorised Non-Maximum Suppression to collapse overlapping YOLO anchor boxes"""
-    if len(boxes) == 0:
-        return []
-    x1 = boxes[:, 0] - boxes[:, 2] / 2
-    y1 = boxes[:, 1] - boxes[:, 3] / 2
-    x2 = boxes[:, 0] + boxes[:, 2] / 2
-    y2 = boxes[:, 1] + boxes[:, 3] / 2
-    areas = np.maximum(0.0, x2 - x1) * np.maximum(0.0, y2 - y1)
-    order = scores.argsort()[::-1]
-    keep = []
-    while order.size > 0:
-        i = order[0]
-        keep.append(i)
-        xx1 = np.maximum(x1[i], x1[order[1:]])
-        yy1 = np.maximum(y1[i], y1[order[1:]])
-        xx2 = np.minimum(x2[i], x2[order[1:]])
-        yy2 = np.minimum(y2[i], y2[order[1:]])
-        w = np.maximum(0.0, xx2 - xx1)
-        h = np.maximum(0.0, yy2 - yy1)
-        inter = w * h
-        ovr = inter / (areas[i] + areas[order[1:]] - inter + 1e-6)
-        inds = np.where(ovr <= iou_thresh)[0]
-        order = order[inds + 1]
-    return keep
+YUNET_MODEL_PATH = os.path.expanduser("~/.cache/huggingface/hub/models--opencv--face_detection_yunet/snapshots/3cc26e7f1014a5ee5d74a42acee58bafc9d0a310/face_detection_yunet_2023mar.onnx")
 
 def track_subject(video_path, start_time, duration, sample_fps=2):
     """
-    Extracts frames at sample_fps, detects primary person and dual speakers using YOLOv8n ONNX with NMS,
-    and returns smoothed horizontal trajectory, primary speaker center, and dual-speaker split coordinates.
+    Cinema-Grade Active Speaker Tracking & Auto-Reframe Engine:
+    - Uses OpenCV native FaceDetectorYN (C++ YuNet) for 2ms face and landmark detection.
+    - Implements Deadband Cinema Stabilization: camera stays rock-solid on the subject,
+      filtering out natural micro-movements and head bobbing.
+    - Identifies dual-speaker interview layouts (host vs guest) with stable left/right coordinates.
     """
-    if not os.path.exists(MODEL_PATH):
+    abs_video_path = os.path.abspath(video_path)
+    if not os.path.exists(abs_video_path):
         return {
+            "duration": duration,
+            "sampleCount": 0,
             "avgX": 0.5,
             "avgXPercent": 50.0,
             "primarySpeakerXPercent": 50.0,
             "hasTwoSpeakers": False,
-            "speakerLeftPercent": 35.0,
-            "speakerRightPercent": 65.0,
+            "speakerLeftPercent": 30.0,
+            "speakerRightPercent": 70.0,
             "trajectory": []
         }
 
-    session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
+    if not os.path.exists(YUNET_MODEL_PATH):
+        print(f"Warning: Face model not found at {YUNET_MODEL_PATH}", file=sys.stderr)
+        return {
+            "duration": duration,
+            "sampleCount": 0,
+            "avgX": 0.5,
+            "avgXPercent": 50.0,
+            "primarySpeakerXPercent": 50.0,
+            "hasTwoSpeakers": False,
+            "speakerLeftPercent": 30.0,
+            "speakerRightPercent": 70.0,
+            "trajectory": []
+        }
 
+    # Initialize OpenCV C++ FaceDetectorYN
+    detector = cv2.FaceDetectorYN.create(
+        YUNET_MODEL_PATH,
+        '',
+        (640, 640),
+        0.32,  # Score threshold
+        0.25,  # NMS threshold
+        5000
+    )
+
+    # Stream frames scaled to 640x640 BGR via fast FFmpeg seeking
     cmd = [
         'ffmpeg',
         '-v', 'quiet',
         '-ss', str(start_time),
         '-t', str(duration),
-        '-i', video_path,
+        '-i', abs_video_path,
         '-vf', f'fps={sample_fps},scale=640:640',
         '-f', 'image2pipe',
         '-vcodec', 'rawvideo',
-        '-pix_fmt', 'rgb24',
+        '-pix_fmt', 'bgr24',
         '-'
     ]
 
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     frame_size = 640 * 640 * 3
-    trajectory = []
-    current_t = 0.0
     time_step = 1.0 / sample_fps
 
-    primary_track_x = None
-    smoothed_x = 0.5
-    raw_positions = []
-    all_detected_centers = []
-    left_positions = []
-    right_positions = []
-    dual_frames_count = 0
+    frame_detections = []
+    current_t = 0.0
 
     while True:
         raw_frame = proc.stdout.read(frame_size)
         if not raw_frame or len(raw_frame) < frame_size:
             break
 
-        img_arr = np.frombuffer(raw_frame, dtype=np.uint8).reshape((640, 640, 3))
-        tensor = img_arr.astype(np.float32) / 255.0
-        tensor = np.transpose(tensor, (2, 0, 1))[None, ...]
+        img = np.frombuffer(raw_frame, dtype=np.uint8).reshape((640, 640, 3))
+        detector.setInputSize((640, 640))
+        _, raw_faces = detector.detect(img)
 
-        outputs = session.run(None, {'images': tensor})
-        preds = outputs[0][0] # (84, 8400)
+        faces = []
+        if raw_faces is not None and len(raw_faces) > 0:
+            for f in raw_faces:
+                box = f[0:4]
+                conf = float(f[-1])
+                if conf < 0.32:
+                    continue
+                w_frac = float(box[2] / 640.0)
+                h_frac = float(box[3] / 640.0)
+                cx = float((box[0] + box[2] / 2.0) / 640.0)
+                cy = float((box[1] + box[3] / 2.0) / 640.0)
+                area = w_frac * h_frac
+                faces.append({
+                    'cx': cx,
+                    'cy': cy,
+                    'area': area,
+                    'conf': conf
+                })
 
-        # Class 0 is 'person' (index 4 in standard YOLOv8)
-        person_scores = preds[4, :]
-        # Filter confidence and realistic person bounding box dimensions
-        valid_mask = (person_scores > 0.32) & (preds[2, :] > 0.08) & (preds[3, :] > 0.15)
-        valid_indices = np.where(valid_mask)[0]
-
-        target_x = smoothed_x
-
-        if len(valid_indices) > 0:
-            boxes = preds[0:4, valid_indices].T # (N, 4) in [cx, cy, w, h]
-            scores = person_scores[valid_indices]
-
-            # Apply NMS to eliminate multiple overlapping detections for the same person
-            keep_indices = nms(boxes, scores, iou_thresh=0.45)
-            clean_boxes = boxes[keep_indices]
-            clean_scores = scores[keep_indices]
-
-            if len(clean_boxes) > 0:
-                # Calculate quality score prioritizing high confidence, foreground presence, and realistic centering
-                areas = clean_boxes[:, 2] * clean_boxes[:, 3]
-                qualities = clean_scores * np.sqrt(areas) * (1.0 - 0.20 * np.abs(clean_boxes[:, 0] - 0.5))
-
-                for b in clean_boxes:
-                    bx = float(b[0])
-                    if 0.05 <= bx <= 0.95:
-                        all_detected_centers.append(bx)
-
-                # Primary speaker tracking with track association
-                if primary_track_x is None:
-                    best_idx = int(np.argmax(qualities))
-                    primary_track_x = float(clean_boxes[best_idx, 0])
-                    target_x = primary_track_x
-                    smoothed_x = primary_track_x
-                else:
-                    # Find candidate closest to existing primary speaker track
-                    dists = np.abs(clean_boxes[:, 0] - primary_track_x)
-                    closest_idx = int(np.argmin(dists))
-
-                    if dists[closest_idx] < 0.25:
-                        target_x = float(clean_boxes[closest_idx, 0])
-                    else:
-                        # Major scene change or camera cut: lock onto highest quality speaker candidate
-                        best_idx = int(np.argmax(qualities))
-                        target_x = float(clean_boxes[best_idx, 0])
-
-                    primary_track_x = target_x
-
-                # Check for simultaneous dual speakers in frame
-                if len(clean_boxes) >= 2:
-                    sorted_by_area = np.argsort(-areas)
-                    p1_x = float(clean_boxes[sorted_by_area[0], 0])
-                    p2_x = float(clean_boxes[sorted_by_area[1], 0])
-                    if 0.05 <= p1_x <= 0.95 and 0.05 <= p2_x <= 0.95 and abs(p1_x - p2_x) > 0.14:
-                        dual_frames_count += 1
-                        left_positions.append(min(p1_x, p2_x))
-                        right_positions.append(max(p1_x, p2_x))
-
-        # Deadband filter: ignore micro-jitter below 2.5%
-        if abs(target_x - smoothed_x) > 0.025:
-            smoothed_x = 0.65 * smoothed_x + 0.35 * target_x
-        
-        clamped_x = max(0.18, min(0.82, smoothed_x))
-
-        raw_positions.append(clamped_x)
-        trajectory.append({
-            "t": round(current_t, 2),
-            "x": round(clamped_x, 3),
-            "xPercent": round(clamped_x * 100, 1)
-        })
+        frame_detections.append({'t': current_t, 'faces': faces})
         current_t += time_step
 
     proc.stdout.close()
     proc.wait()
 
-    avg_x = float(np.mean(raw_positions)) if raw_positions else 0.5
-    median_x = float(np.median(raw_positions)) if raw_positions else avg_x
+    # Step 2: Extract all valid face centers to analyze spatial distribution
+    all_face_centers = []
+    for fd in frame_detections:
+        for fc in fd['faces']:
+            if 0.08 <= fc['cx'] <= 0.92:
+                all_face_centers.append(fc['cx'])
 
-    # Cross-cut podcast/interview dual speaker clustering:
-    left_cluster = [x for x in all_detected_centers if x < 0.48]
-    right_cluster = [x for x in all_detected_centers if x > 0.52]
+    if not all_face_centers:
+        default_x = 0.50
+        traj = [{"t": round(fd['t'], 2), "x": default_x, "xPercent": 50.0, "activeSpeaker": "center"} for fd in frame_detections]
+        return {
+            "duration": duration,
+            "sampleCount": len(traj),
+            "avgX": default_x,
+            "avgXPercent": 50.0,
+            "primarySpeakerXPercent": 50.0,
+            "hasTwoSpeakers": False,
+            "speakerLeftPercent": 30.0,
+            "speakerRightPercent": 70.0,
+            "trajectory": traj
+        }
 
-    has_two_speakers = (
-        dual_frames_count >= max(2, len(trajectory) * 0.15) or
-        (len(left_cluster) >= 3 and len(right_cluster) >= 3 and (np.mean(right_cluster) - np.mean(left_cluster)) >= 0.16)
-    )
+    # Step 3: Cluster analysis for two-speaker setups (e.g. podcast interview)
+    left_cluster = [x for x in all_face_centers if x < 0.44]
+    right_cluster = [x for x in all_face_centers if x > 0.56]
+    center_cluster = [x for x in all_face_centers if 0.44 <= x <= 0.56]
 
-    if left_positions:
-        avg_left = float(np.mean(left_positions))
-    elif left_cluster:
-        avg_left = float(np.mean(left_cluster))
+    has_two_speakers = (len(left_cluster) >= 4 and len(right_cluster) >= 4 and (len(left_cluster) + len(right_cluster)) > len(center_cluster))
+
+    avg_left = float(np.mean(left_cluster)) if left_cluster else 0.32
+    avg_right = float(np.mean(right_cluster)) if right_cluster else 0.68
+
+    # Primary anchor: robust median of the dominant cluster
+    if has_two_speakers:
+        primary_anchor = avg_left if len(left_cluster) >= len(right_cluster) else avg_right
     else:
-        avg_left = max(0.20, avg_x - 0.22)
+        primary_anchor = float(np.median(all_face_centers))
 
-    if right_positions:
-        avg_right = float(np.mean(right_positions))
-    elif right_cluster:
-        avg_right = float(np.mean(right_cluster))
-    else:
-        avg_right = min(0.80, avg_x + 0.22)
+    # Step 4: Cinema Deadband & Inertia Stabilization
+    # If overall speaker movement is within natural head-bobbing range (< 0.14),
+    # lock the camera firmly on the primary anchor with zero wobbling.
+    overall_span = max(all_face_centers) - min(all_face_centers)
+    is_stable_monologue = (overall_span < 0.14) and not has_two_speakers
+
+    current_camera_x = primary_anchor
+    trajectory = []
+    deadband = 0.08  # 8% screen deadband zone: camera stays still unless subject moves outside
+
+    for fd in frame_detections:
+        t = fd['t']
+        faces = fd['faces']
+
+        if is_stable_monologue:
+            target_x = primary_anchor
+            speaker_label = "center"
+        elif faces:
+            dominant = max(faces, key=lambda f: f['area'] * f['conf'])
+            raw_cx = dominant['cx']
+            
+            # Deadband check: if within deadband box, camera holds position
+            if abs(raw_cx - current_camera_x) > deadband:
+                current_camera_x = 0.85 * current_camera_x + 0.15 * raw_cx
+            
+            target_x = current_camera_x
+            speaker_label = "left" if target_x < 0.44 else ("right" if target_x > 0.56 else "center")
+        else:
+            target_x = current_camera_x
+            speaker_label = "center"
+
+        clamped_x = max(0.20, min(0.80, target_x))
+        trajectory.append({
+            "t": round(t, 2),
+            "x": round(clamped_x, 3),
+            "xPercent": round(clamped_x * 100.0, 1),
+            "activeSpeaker": speaker_label
+        })
+
+    avg_x = float(np.mean([pt['x'] for pt in trajectory]))
 
     return {
         "duration": duration,
         "sampleCount": len(trajectory),
         "avgX": round(avg_x, 3),
-        "avgXPercent": round(avg_x * 100, 1),
-        "primarySpeakerXPercent": round(median_x * 100, 1),
+        "avgXPercent": round(avg_x * 100.0, 1),
+        "primarySpeakerXPercent": round(primary_anchor * 100.0, 1),
         "hasTwoSpeakers": bool(has_two_speakers),
-        "speakerLeftPercent": round(avg_left * 100, 1),
-        "speakerRightPercent": round(avg_right * 100, 1),
+        "speakerLeftPercent": round(avg_left * 100.0, 1),
+        "speakerRightPercent": round(avg_right * 100.0, 1),
         "trajectory": trajectory
     }
 

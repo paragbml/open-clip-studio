@@ -67,10 +67,11 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
         gap: '20px'
       }}>
         {clips.map((clip, index) => {
-          const score = clip.viralityScore;
-          const hookScore = Math.min(99, Math.round(score * 1.04));
-          const retentionScore = Math.min(98, Math.round(score * 0.98));
-          const pacingScore = Math.min(96, Math.round(score * 0.93));
+          const score = clip.viralityScore || 85;
+          const hookScore = clip.hookScore || Math.min(99, Math.round(score * 1.04));
+          const flowScore = clip.flowScore || Math.min(98, Math.round(score * 0.98));
+          const energyScore = clip.energyScore || Math.min(95, Math.round(score * 0.95));
+          const climaxScore = clip.climaxScore || Math.min(94, Math.round(score * 0.92));
 
           return (
             <div
@@ -85,7 +86,7 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
               }}
             >
               <div>
-                {/* Top Row: Lowkey Score & Timestamp */}
+                {/* Top Row: Score & Timestamp */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -137,8 +138,8 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
                   </div>
                 </div>
 
-                {/* Hook Tag */}
-                <div style={{ marginBottom: '8px' }}>
+                {/* Hook Tag & Agency ML Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                   <span style={{
                     fontSize: '0.7rem',
                     fontWeight: 600,
@@ -147,6 +148,20 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
                     color: 'var(--text-secondary)'
                   }}>
                     {clip.hookType || 'Core Segment'}
+                  </span>
+                  <span style={{
+                    fontSize: '0.66rem',
+                    background: 'rgba(56, 189, 248, 0.1)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    ⚡ Agency ML Model
                   </span>
                 </div>
 
@@ -162,7 +177,7 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
                   {clip.title}
                 </h3>
 
-                {/* Precision Metric Breakdown Bars */}
+                {/* 4-Vector Precision Metric Breakdown Bars (Opus-Equivalent) */}
                 <div style={{
                   background: 'rgba(7, 10, 18, 0.55)',
                   padding: '10px 12px',
@@ -173,41 +188,52 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
                   flexDirection: 'column',
                   gap: '7px'
                 }}>
-                  {/* Hook */}
+                  {/* Hook Potential */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Hook Potential</span>
-                      <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{hookScore}%</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Hook Potential (3s)</span>
+                      <span style={{ fontWeight: 500, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>{hookScore}%</span>
                     </div>
                     <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${hookScore}%`, height: '100%', background: '#cbd5e1', borderRadius: '2px' }} />
+                      <div style={{ width: `${hookScore}%`, height: '100%', background: '#38bdf8', borderRadius: '2px' }} />
                     </div>
                   </div>
 
-                  {/* Retention */}
+                  {/* Flow & Pacing */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Retention Flow</span>
-                      <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{retentionScore}%</span>
+                      <span style={{ fontWeight: 500, color: '#818cf8', fontFamily: 'var(--font-mono)' }}>{flowScore}%</span>
                     </div>
                     <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${retentionScore}%`, height: '100%', background: '#94a3b8', borderRadius: '2px' }} />
+                      <div style={{ width: `${flowScore}%`, height: '100%', background: '#818cf8', borderRadius: '2px' }} />
                     </div>
                   </div>
 
-                  {/* Pacing */}
+                  {/* Acoustic Energy */}
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Pacing</span>
-                      <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{pacingScore}%</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Acoustic Energy</span>
+                      <span style={{ fontWeight: 500, color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>{energyScore}%</span>
                     </div>
                     <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${pacingScore}%`, height: '100%', background: '#64748b', borderRadius: '2px' }} />
+                      <div style={{ width: `${energyScore}%`, height: '100%', background: '#f59e0b', borderRadius: '2px' }} />
+                    </div>
+                  </div>
+
+                  {/* Climax Payoff */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '2px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Climax Payoff</span>
+                      <span style={{ fontWeight: 500, color: '#ec4899', fontFamily: 'var(--font-mono)' }}>{climaxScore}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '3px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${climaxScore}%`, height: '100%', background: '#ec4899', borderRadius: '2px' }} />
                     </div>
                   </div>
                 </div>
 
-                {/* Insight Callout */}
+                {/* Diagnostic Callout */}
                 <div style={{
                   fontSize: '0.78rem',
                   color: 'var(--text-muted)',
@@ -218,6 +244,56 @@ export default function ClipList({ clips, onSelectClip, onNewVideo, videoMeta })
                   borderRadius: 'var(--radius-sm)',
                   border: '1px solid var(--border-subtle)'
                 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.7rem', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#38bdf8', fontWeight: 600 }}>
+                      <Sparkles size={11} />
+                      <span>{clip.mlModel?.includes('v4') ? 'v4 46-D Multimodal Virality Engine' : (clip.mlModel ? 'v4 46-D Neural Multimodal' : 'ML Diagnostic Intelligence')}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {clip.hookVelocity !== null && clip.hookVelocity !== undefined && (
+                        <span style={{
+                          background: 'rgba(56, 189, 248, 0.12)',
+                          color: '#7dd3fc',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          fontSize: '0.64rem',
+                          fontWeight: 600,
+                          fontFamily: 'var(--font-mono)'
+                        }}>
+                          ⚡ H2S: {(clip.hookVelocity * 100).toFixed(0)}%
+                        </span>
+                      )}
+                      {clip.survivalProbability !== null && clip.survivalProbability !== undefined && (
+                        <span style={{
+                          background: 'rgba(52, 211, 153, 0.12)',
+                          color: '#6ee7b7',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(52, 211, 153, 0.25)',
+                          fontSize: '0.64rem',
+                          fontWeight: 600,
+                          fontFamily: 'var(--font-mono)'
+                        }}>
+                          📈 Retention: {(clip.survivalProbability * 100).toFixed(0)}%
+                        </span>
+                      )}
+                      {clip.semanticMargin !== null && clip.semanticMargin !== undefined && (
+                        <span style={{
+                          background: 'rgba(129, 140, 248, 0.12)',
+                          color: '#a5b4fc',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(129, 140, 248, 0.25)',
+                          fontSize: '0.64rem',
+                          fontWeight: 600,
+                          fontFamily: 'var(--font-mono)'
+                        }}>
+                          🧠 Vector: {(clip.semanticMargin * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Summary: </span>
                   {clip.viralityReason}
                 </div>

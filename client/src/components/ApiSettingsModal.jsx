@@ -4,6 +4,7 @@ import { X, Key, ShieldCheck, Zap, Sparkles, Server } from 'lucide-react';
 export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialKeys }) {
   const [geminiKey, setGeminiKey] = useState(initialKeys?.geminiApiKey || '');
   const [groqKey, setGroqKey] = useState(initialKeys?.groqApiKey || '');
+  const [githubToken, setGithubToken] = useState(initialKeys?.githubToken || '');
   const [backendUrl, setBackendUrl] = useState(initialKeys?.backendUrl || '');
 
   if (!isOpen) return null;
@@ -12,6 +13,7 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
     onSaveKeys({
       geminiApiKey: geminiKey.trim(),
       groqApiKey: groqKey.trim(),
+      githubToken: githubToken.trim(),
       backendUrl: backendUrl.trim().replace(/\/$/, '')
     });
     onClose();
@@ -133,6 +135,31 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
             />
             <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
               Enables Whisper Large-v3 speech recognition at ~100x real-time speed. Free from console.groq.com.
+            </p>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={14} color="#818cf8" />
+              GitHub Student Plan / GitHub Token (Personal Access Token)
+            </label>
+            <input
+              type="password"
+              placeholder="ghp_... or github_pat_..."
+              value={githubToken}
+              onChange={(e) => setGithubToken(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid var(--border-subtle)',
+                color: '#ffffff',
+                fontSize: '0.88rem'
+              }}
+            />
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+              Unlocks <strong>GitHub Models</strong> (Meta-Llama-3.3-70B &amp; GPT-4o-mini) free via your GitHub Student Developer Pack. Accurately pinpoints the most viral and engaging hooks from transcripts!
             </p>
           </div>
 

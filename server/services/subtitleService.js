@@ -98,12 +98,16 @@ function generateAssSubtitles(words, options = {}) {
     clipDuration = 60
   } = options;
 
-  let fontName = 'Montserrat';
+  let fontName = 'Montserrat Black';
   if (style === 'mrbeast') {
     fontName = 'Impact';
   } else if (style === 'clean') {
-    fontName = 'Arial';
+    fontName = 'Montserrat SemiBold';
   }
+
+  // Ensure highlightColor is properly formatted for ASS BGR: Neon Yellow (#FFE600 -> &H0000E6FF&)
+  const assHighlight = highlightColor.startsWith('&H') ? highlightColor : '&H0000E6FF&';
+  const strokeWidth = style === 'clean' ? 4 : 8;
 
   const header = `[Script Info]
 ScriptType: v4.00+
@@ -113,8 +117,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},${fontSize},${primaryColor},${highlightColor},${outlineColor},&H80000000,-1,0,0,0,100,100,1,0,1,${outline},3,${alignment},40,40,${marginV},1
-Style: TopHook,${fontName},44,&H00FFFFFF&,&H0022FFFF&,&H00000000,&HCC0A0F1D,-1,0,0,0,100,100,2,0,3,14,0,8,60,60,110,1
+Style: Default,${fontName},${fontSize},${primaryColor},${assHighlight},${outlineColor},&H80000000,-1,0,0,0,100,100,1,0,1,${strokeWidth},3,${alignment},40,40,${marginV},1
+Style: TopHook,Montserrat ExtraBold,44,&H00FFFFFF&,&H0000E6FF&,&H00000000,&HCC0A0F1D,-1,0,0,0,100,100,2,0,3,14,0,8,60,60,110,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -170,10 +174,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
       const formattedWords = group.map(w => {
         const displayText = style === 'hormozi' ? w.word.toUpperCase() : w.word;
-        const emojiPrefix = (w === activeWord && w.emoji) ? `${w.emoji} ` : '';
         if (w === activeWord) {
           // Highlight active word in neon yellow/green with zoom pop
-          return `{\\c${highlightColor}\\fscx112\\fscy112}${emojiPrefix}${displayText}{\\r}`;
+          return `{\\c${assHighlight}\\fscx112\\fscy112}${displayText}{\\r}`;
         } else {
           return `{\\c${primaryColor}\\fscx100\\fscy100}${displayText}`;
         }

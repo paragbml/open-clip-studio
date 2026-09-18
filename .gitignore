@@ -39,6 +39,10 @@ __pycache__/
 .venv/
 venv/
 
+# Large ML Weights (auto-downloaded from Hugging Face if needed)
+*.onnx
+server/ml/models/**/*.onnx
+
 # Logs
 *.log
 npm-debug.log*
