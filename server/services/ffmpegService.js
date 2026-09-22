@@ -3,8 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const { getEmojiPngPath } = require('./emojiService');
 
-const FFMPEG_BIN = process.env.FFMPEG_PATH || 'ffmpeg';
-const FFPROBE_BIN = process.env.FFPROBE_PATH || 'ffprobe';
+let staticFfmpeg = null;
+try {
+  staticFfmpeg = require('ffmpeg-static');
+} catch (e) {}
+
+let staticFfprobe = null;
+try {
+  staticFfprobe = require('@ffprobe-installer/ffprobe').path;
+} catch (e) {}
+
+const FFMPEG_BIN = process.env.FFMPEG_PATH || (staticFfmpeg && fs.existsSync(staticFfmpeg) ? staticFfmpeg : 'ffmpeg');
+const FFPROBE_BIN = process.env.FFPROBE_PATH || (staticFfprobe && fs.existsSync(staticFfprobe) ? staticFfprobe : 'ffprobe');
+
 
 /**
  * Probes video file to get duration, width, height, fps
