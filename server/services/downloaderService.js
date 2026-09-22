@@ -101,5 +101,7 @@ function downloadUrl(url, outputDir, onProgress = null) {
 }
 
 module.exports = {
-  downloadUrl
+  downloadUrl,
+  resolveYtDlpBin
 };
+

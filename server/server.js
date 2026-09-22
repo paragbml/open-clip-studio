@@ -28,7 +28,7 @@ const {
 const { transcribeAudio } = require('./services/transcribeService');
 const { discoverViralClips, findBestTeaserHook } = require('./services/viralityService');
 const { generateAssSubtitles } = require('./services/subtitleService');
-const { downloadUrl } = require('./services/downloaderService');
+const { downloadUrl, resolveYtDlpBin } = require('./services/downloaderService');
 const { calculateJumpCuts } = require('./services/jumpCutService');
 
 const app = express();
@@ -168,9 +168,15 @@ app.get('/api/stream', (req, res) => {
  */
 app.get('/api/status', (req, res) => {
   const ghTok = process.env.GITHUB_TOKEN || autoGithubToken || '';
+  let ytdlpResolved = 'unknown';
+  try {
+    ytdlpResolved = resolveYtDlpBin ? resolveYtDlpBin() : 'not-imported';
+  } catch (e) {
+    ytdlpResolved = e.message;
+  }
   res.json({
     status: 'ok',
-    version: '1.0.0',
+    version: '1.0.1',
     platform: 'OpenClip Studio',
     pricing: '100% Free & Open-Source',
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
@@ -178,7 +184,8 @@ app.get('/api/status', (req, res) => {
     hasGithubToken: Boolean(ghTok),
     githubToken: ghTok,
     ffmpegReady: true,
-    ytdlpReady: true
+    ytdlpReady: Boolean(ytdlpResolved),
+    ytdlpPath: ytdlpResolved
   });
 });
 
