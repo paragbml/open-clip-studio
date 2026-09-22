@@ -2,8 +2,26 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const localBinYtDlp = path.join(__dirname, '..', 'bin', 'yt-dlp');
 const defaultLocalYtDlp = path.join(process.env.HOME || '/home/parag', '.local/bin/yt-dlp');
-const YTDLP_BIN = process.env.YTDLP_PATH || (fs.existsSync(defaultLocalYtDlp) ? defaultLocalYtDlp : 'yt-dlp');
+
+function resolveYtDlpBin() {
+  if (process.env.YTDLP_PATH && fs.existsSync(process.env.YTDLP_PATH)) {
+    return process.env.YTDLP_PATH;
+  }
+  if (fs.existsSync(localBinYtDlp)) {
+    try { fs.chmodSync(localBinYtDlp, 0o755); } catch (e) {}
+    return localBinYtDlp;
+  }
+  if (fs.existsSync(defaultLocalYtDlp)) {
+    return defaultLocalYtDlp;
+  }
+  try {
+    const whichOut = require('child_process').execSync('which yt-dlp 2>/dev/null').toString().trim();
+    if (whichOut && fs.existsSync(whichOut)) return whichOut;
+  } catch (e) {}
+  return 'yt-dlp';
+}
 
 /**
  * Downloads a video from URL (YouTube, Vimeo, etc.)
@@ -13,16 +31,15 @@ function downloadUrl(url, outputDir, onProgress = null) {
     const fileId = `dl_${Date.now()}`;
     const outputTemplate = path.join(outputDir, `${fileId}.%(ext)s`);
 
-    // Fetch max 1080p mp4
-    // visionos player client works for public YouTube videos without auth/JS runtime
     const cookieFile = path.join(__dirname, '../yt-cookies.txt');
     const cookieArgs = fs.existsSync(cookieFile)
-      ? ['--cookies', cookieFile]        // use saved cookies for age-restricted content
-      : ['--no-cookies'];               // no cookies needed for most public videos
+      ? ['--cookies', cookieFile]
+      : ['--no-cookies'];
 
     const args = [
-      '--format', 'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+      '--format', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
       '--merge-output-format', 'mp4',
+      '--extractor-args', 'youtube:player_client=android,web',
       '-N', '8',                        // 8 concurrent connection fragments for 6-8x download speedup
       '--buffer-size', '16M',           // 16MB download buffer
       '--http-chunk-size', '10M',       // 10MB chunk size to defeat YouTube per-connection throttling
@@ -32,15 +49,21 @@ function downloadUrl(url, outputDir, onProgress = null) {
       url
     ];
 
-    const nodeBin = process.execPath; // current node binary
-    const proc = spawn(YTDLP_BIN, args, {
+    const ytdlpBin = resolveYtDlpBin();
+    const proc = spawn(ytdlpBin, args, {
       env: {
         ...process.env,
-        PATH: `/usr/local/bin:/usr/bin:/bin:${process.env.HOME}/.local/bin:${process.env.PATH || ''}`
+        PATH: `${path.dirname(localBinYtDlp)}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME}/.local/bin:${process.env.PATH || ''}`
       }
     });
+
     let stderr = '';
     let stdout = '';
+
+    proc.on('error', err => {
+      console.error('yt-dlp execution error:', err);
+      reject(new Error(`Failed to run yt-dlp (${ytdlpBin}): ${err.message}`));
+    });
 
     proc.stdout.on('data', data => {
       const text = data.toString();
