@@ -138,6 +138,11 @@ export default function App() {
     try {
       data = JSON.parse(text);
     } catch (e) {
+      if (res.status === 502 || res.status === 503) {
+        throw new Error(
+          'The server is currently waking up or updating (Render Free Tier cold-start). Please wait ~15-30 seconds and try again!'
+        );
+      }
       if (res.status === 405 || text.includes('405 Not Allowed')) {
         throw new Error(
           'GitHub Pages is a static host and cannot run FFmpeg / yt-dlp.\n\n' +
