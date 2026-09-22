@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  open-clip-studio:
+    build: .
+    container_name: clipso-studio
+    restart: unless-stopped
+    ports:
+      - "5000:7860"
+    environment:
+      - PORT=7860
+      - NODE_ENV=production
+    volumes:
+      - ./server/uploads:/app/server/uploads
+      - ./server/exports:/app/server/exports

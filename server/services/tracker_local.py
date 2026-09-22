@@ -10,7 +10,27 @@ except ImportError:
     print("Error: cv2 not found", file=sys.stderr)
     sys.exit(1)
 
-YUNET_MODEL_PATH = os.path.expanduser("~/.cache/huggingface/hub/models--opencv--face_detection_yunet/snapshots/3cc26e7f1014a5ee5d74a42acee58bafc9d0a310/face_detection_yunet_2023mar.onnx")
+LOCAL_YUNET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'face_detection_yunet_2023mar.onnx')
+CANDIDATE_YUNET_PATHS = [
+    LOCAL_YUNET_PATH,
+    os.path.expanduser("~/.cache/huggingface/hub/models--opencv--face_detection_yunet/snapshots/3cc26e7f1014a5ee5d74a42acee58bafc9d0a310/face_detection_yunet_2023mar.onnx"),
+    "/app/server/services/models/face_detection_yunet_2023mar.onnx"
+]
+
+def get_yunet_model_path():
+    for p in CANDIDATE_YUNET_PATHS:
+        if os.path.exists(p) and os.path.getsize(p) > 1000:
+            return p
+    try:
+        os.makedirs(os.path.dirname(LOCAL_YUNET_PATH), exist_ok=True)
+        import urllib.request
+        url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+        urllib.request.urlretrieve(url, LOCAL_YUNET_PATH)
+        if os.path.exists(LOCAL_YUNET_PATH):
+            return LOCAL_YUNET_PATH
+    except Exception as e:
+        print(f"Warning: Failed to auto-download YuNet: {e}", file=sys.stderr)
+    return None
 
 def track_subject(video_path, start_time, duration, sample_fps=2):
     """
@@ -34,8 +54,9 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
             "trajectory": []
         }
 
-    if not os.path.exists(YUNET_MODEL_PATH):
-        print(f"Warning: Face model not found at {YUNET_MODEL_PATH}", file=sys.stderr)
+    yunet_path = get_yunet_model_path()
+    if not yunet_path:
+        print("Warning: Face model not found, falling back to center (50%)", file=sys.stderr)
         return {
             "duration": duration,
             "sampleCount": 0,
@@ -50,7 +71,7 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
 
     # Initialize OpenCV C++ FaceDetectorYN
     detector = cv2.FaceDetectorYN.create(
-        YUNET_MODEL_PATH,
+        yunet_path,
         '',
         (640, 640),
         0.32,  # Score threshold

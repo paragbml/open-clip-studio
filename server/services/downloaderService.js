@@ -2,7 +2,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const YTDLP_BIN = process.env.YTDLP_PATH || path.join(process.env.HOME || '/home/parag', '.local/bin/yt-dlp');
+const defaultLocalYtDlp = path.join(process.env.HOME || '/home/parag', '.local/bin/yt-dlp');
+const YTDLP_BIN = process.env.YTDLP_PATH || (fs.existsSync(defaultLocalYtDlp) ? defaultLocalYtDlp : 'yt-dlp');
 
 /**
  * Downloads a video from URL (YouTube, Vimeo, etc.)

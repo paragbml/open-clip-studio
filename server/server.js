@@ -498,6 +498,18 @@ app.use((err, req, res, next) => {
   }
 });
 
+// Serve static frontend in production if built
+const clientDistPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/exports') || req.path.startsWith('/samples') || req.path.startsWith('/sfx')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 const server = app.listen(PORT, () => {
   console.log(`🚀 OpenClip Studio API Server running on http://localhost:${PORT}`);
 });

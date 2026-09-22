@@ -90,7 +90,12 @@ export default function StudioEditor({
 
   const clipDuration = Math.max(0.5, parseFloat((trimEnd - trimStart).toFixed(2)));
   const backendBase = backendUrl ? backendUrl.replace(/\/$/, '') : (window.location.port === '5173' ? 'http://localhost:5000' : '');
-  const isServerAvailable = Boolean(backendUrl || window.location.port === '5173' || window.location.hostname === 'localhost');
+  const isServerAvailable = Boolean(
+    backendUrl ||
+    window.location.port === '5173' ||
+    window.location.hostname === 'localhost' ||
+    !window.location.hostname.includes('github.io')
+  );
 
   // High-performance clip snippet URL: directly plays the exact trimmed clip interval
   const previewVideoUrl = (filePath && isServerAvailable && !filePath.endsWith('.vtt'))
