@@ -23,6 +23,11 @@ function resolveYtDlpBin() {
   return 'yt-dlp';
 }
 
+let ffmpegStaticPath = '';
+try {
+  ffmpegStaticPath = require('ffmpeg-static');
+} catch (e) {}
+
 /**
  * Downloads a video from URL (YouTube, Vimeo, etc.)
  */
@@ -31,18 +36,45 @@ function downloadUrl(url, outputDir, onProgress = null) {
     const fileId = `dl_${Date.now()}`;
     const outputTemplate = path.join(outputDir, `${fileId}.%(ext)s`);
 
+    const isYouTube = /youtu\.?be/i.test(url);
     const cookieFile = path.join(__dirname, '../yt-cookies.txt');
-    const cookieArgs = fs.existsSync(cookieFile)
-      ? ['--cookies', cookieFile]
-      : ['--no-cookies'];
+    
+    let cookieArgs = ['--no-cookies'];
+    if (process.env.YOUTUBE_COOKIES_BASE64) {
+      const tmpCookie = path.join('/tmp', 'yt_cookies.txt');
+      try {
+        fs.writeFileSync(tmpCookie, Buffer.from(process.env.YOUTUBE_COOKIES_BASE64, 'base64').toString('utf-8'));
+        cookieArgs = ['--cookies', tmpCookie];
+      } catch (e) {}
+    } else if (process.env.YOUTUBE_COOKIES) {
+      const tmpCookie = path.join('/tmp', 'yt_cookies.txt');
+      try {
+        fs.writeFileSync(tmpCookie, process.env.YOUTUBE_COOKIES);
+        cookieArgs = ['--cookies', tmpCookie];
+      } catch (e) {}
+    } else if (fs.existsSync(cookieFile)) {
+      cookieArgs = ['--cookies', cookieFile];
+    }
+
+    const hasCookies = cookieArgs[0] === '--cookies';
+    // When no cookies are supplied, VisionOS player client bypasses datacenter IP bot detection
+    const extractorArgs = (isYouTube && !hasCookies)
+      ? ['--extractor-args', 'youtube:player_client=visionos']
+      : [];
+
+    const ffmpegArgs = (ffmpegStaticPath && fs.existsSync(ffmpegStaticPath))
+      ? ['--ffmpeg-location', ffmpegStaticPath]
+      : [];
 
     const args = [
       '--format', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
       '--merge-output-format', 'mp4',
-      '--extractor-args', 'youtube:player_client=visionos,android',
-      '-N', '8',                        // 8 concurrent connection fragments for 6-8x download speedup
+      ...extractorArgs,
+      ...ffmpegArgs,
+      '--js-runtimes', 'node',
+      '-N', '8',                        // 8 concurrent connection fragments for fast downloads
       '--buffer-size', '16M',           // 16MB download buffer
-      '--http-chunk-size', '10M',       // 10MB chunk size to defeat YouTube per-connection throttling
+      '--http-chunk-size', '10M',       // 10MB chunk size
       '-o', outputTemplate,
       '--no-playlist',
       ...cookieArgs,
@@ -53,7 +85,7 @@ function downloadUrl(url, outputDir, onProgress = null) {
     const proc = spawn(ytdlpBin, args, {
       env: {
         ...process.env,
-        PATH: `${path.dirname(localBinYtDlp)}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME}/.local/bin:${process.env.PATH || ''}`
+        PATH: `${path.dirname(localBinYtDlp)}:${ffmpegStaticPath ? path.dirname(ffmpegStaticPath) : ''}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME}/.local/bin:${process.env.PATH || ''}`
       }
     });
 
