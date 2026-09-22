@@ -6,6 +6,7 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
   const [groqKey, setGroqKey] = useState(initialKeys?.groqApiKey || '');
   const [githubToken, setGithubToken] = useState(initialKeys?.githubToken || '');
   const [backendUrl, setBackendUrl] = useState(initialKeys?.backendUrl || '');
+  const [ytCookies, setYtCookies] = useState(initialKeys?.ytCookies || '');
 
   if (!isOpen) return null;
 
@@ -14,7 +15,8 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
       geminiApiKey: geminiKey.trim(),
       groqApiKey: groqKey.trim(),
       githubToken: githubToken.trim(),
-      backendUrl: backendUrl.trim().replace(/\/$/, '')
+      backendUrl: backendUrl.trim().replace(/\/$/, ''),
+      ytCookies: ytCookies.trim()
     });
     onClose();
   };
@@ -185,6 +187,33 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
             />
             <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
               Leave blank when running locally via <code>npm run dev</code>. When hosting on GitHub Pages, enter your running backend URL to enable video uploads &amp; YouTube downloads.
+            </p>
+          </div>
+
+          <div>
+            <label style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Zap size={14} color="#f59e0b" />
+              YouTube Cookies (Optional - Unlocks Cloud YouTube Links)
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Paste Netscape cookies.txt content here to bypass YouTube bot detection on cloud servers..."
+              value={ytCookies}
+              onChange={(e) => setYtCookies(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid var(--border-subtle)',
+                color: '#ffffff',
+                fontSize: '0.82rem',
+                fontFamily: 'monospace',
+                resize: 'vertical'
+              }}
+            />
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+              Export using Chrome/Firefox extension <em>"Get cookies.txt LOCALLY"</em> while logged into YouTube. Stored locally in your browser.
             </p>
           </div>
         </div>

@@ -270,11 +270,11 @@ app.post('/api/upload', (req, res) => {
  * Download URL (YouTube, Vimeo, etc.)
  */
 app.post('/api/download-url', async (req, res) => {
-  const { url } = req.body;
+  const { url, cookies } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   try {
-    const result = await downloadUrl(url, UPLOAD_DIR);
+    const result = await downloadUrl(url, UPLOAD_DIR, null, cookies);
     let filePath = result.filePath;
     filePath = await normalizeWebVideo(filePath);
     const meta = await probeVideo(filePath);

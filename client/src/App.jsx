@@ -52,7 +52,8 @@ export default function App() {
       geminiApiKey: localStorage.getItem('openclip_gemini_key') || '',
       groqApiKey: localStorage.getItem('openclip_groq_key') || '',
       githubToken: localStorage.getItem('openclip_github_token') || '',
-      backendUrl: localStorage.getItem('openclip_backend_url') || ''
+      backendUrl: localStorage.getItem('openclip_backend_url') || '',
+      ytCookies: localStorage.getItem('openclip_yt_cookies') || ''
     };
   });
 
@@ -108,6 +109,7 @@ export default function App() {
     localStorage.setItem('openclip_groq_key', newKeys.groqApiKey || '');
     localStorage.setItem('openclip_github_token', newKeys.githubToken || '');
     localStorage.setItem('openclip_backend_url', newKeys.backendUrl || '');
+    localStorage.setItem('openclip_yt_cookies', newKeys.ytCookies || '');
   };
 
   useEffect(() => {
@@ -386,16 +388,27 @@ export default function App() {
     setProcessingStep(1);
     setProcessingText('Downloading video stream via yt-dlp...');
 
+    const storedCookies = apiKeys.ytCookies || localStorage.getItem('openclip_yt_cookies') || '';
+
     try {
       const data = await safeFetchJson('/api/download-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, cookies: storedCookies })
       });
 
       await runProcessingPipeline(data.filePath, null, data.videoUrl);
     } catch (err) {
-      alert(`Download error: ${err.message}`);
+      const isBotBlock = err.message.includes('not a bot') || err.message.includes('429');
+      if (isBotBlock) {
+        alert(
+          'YouTube blocked automated downloads from cloud servers (Bot Check / HTTP 429).\n\n' +
+          '• Solution 1 (Recommended): Download the video on your device (e.g. via cobalt.tools) and drag & drop the MP4 here for instant processing!\n' +
+          '• Solution 2: Paste your YouTube cookies into Settings (top right) to authorize cloud downloads.'
+        );
+      } else {
+        alert(`Download error: ${err.message}`);
+      }
       setView('ingestion');
     }
   };

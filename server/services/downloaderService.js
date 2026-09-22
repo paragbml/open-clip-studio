@@ -31,7 +31,7 @@ try {
 /**
  * Downloads a video from URL (YouTube, Vimeo, etc.)
  */
-function downloadUrl(url, outputDir, onProgress = null) {
+function downloadUrl(url, outputDir, onProgress = null, customCookies = null) {
   return new Promise((resolve, reject) => {
     const fileId = `dl_${Date.now()}`;
     const outputTemplate = path.join(outputDir, `${fileId}.%(ext)s`);
@@ -40,17 +40,25 @@ function downloadUrl(url, outputDir, onProgress = null) {
     const cookieFile = path.join(__dirname, '../yt-cookies.txt');
     
     let cookieArgs = ['--no-cookies'];
-    if (process.env.YOUTUBE_COOKIES_BASE64) {
-      const tmpCookie = path.join('/tmp', 'yt_cookies.txt');
+    let tempCookiePath = null;
+
+    if (customCookies && customCookies.trim()) {
+      tempCookiePath = path.join('/tmp', `yt_cookies_${Date.now()}.txt`);
       try {
-        fs.writeFileSync(tmpCookie, Buffer.from(process.env.YOUTUBE_COOKIES_BASE64, 'base64').toString('utf-8'));
-        cookieArgs = ['--cookies', tmpCookie];
+        fs.writeFileSync(tempCookiePath, customCookies.trim(), 'utf-8');
+        cookieArgs = ['--cookies', tempCookiePath];
+      } catch (e) {}
+    } else if (process.env.YOUTUBE_COOKIES_BASE64) {
+      tempCookiePath = path.join('/tmp', 'yt_cookies.txt');
+      try {
+        fs.writeFileSync(tempCookiePath, Buffer.from(process.env.YOUTUBE_COOKIES_BASE64, 'base64').toString('utf-8'));
+        cookieArgs = ['--cookies', tempCookiePath];
       } catch (e) {}
     } else if (process.env.YOUTUBE_COOKIES) {
-      const tmpCookie = path.join('/tmp', 'yt_cookies.txt');
+      tempCookiePath = path.join('/tmp', 'yt_cookies.txt');
       try {
-        fs.writeFileSync(tmpCookie, process.env.YOUTUBE_COOKIES);
-        cookieArgs = ['--cookies', tmpCookie];
+        fs.writeFileSync(tempCookiePath, process.env.YOUTUBE_COOKIES);
+        cookieArgs = ['--cookies', tempCookiePath];
       } catch (e) {}
     } else if (fs.existsSync(cookieFile)) {
       cookieArgs = ['--cookies', cookieFile];
