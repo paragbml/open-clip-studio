@@ -313,26 +313,71 @@ export default function App() {
     }
   };
 
-  // 2. Upload file handler
-  const handleUploadFile = async (file) => {
+  // 2. Upload file handler with real-time percentage, MB counter & speed tracking
+  const handleUploadFile = (file) => {
     setView('processing');
     setProcessingStep(1);
-    setProcessingText(`Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`);
+    const totalMB = (file.size / (1024 * 1024)).toFixed(1);
+    setProcessingText(`Uploading ${file.name} (0% • 0 / ${totalMB} MB)...`);
 
     const formData = new FormData();
     formData.append('video', file);
 
-    try {
-      const data = await safeFetchJson('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
+    const xhr = new XMLHttpRequest();
+    const targetUrl = getApiUrl('/api/upload');
+    xhr.open('POST', targetUrl, true);
 
-      await runProcessingPipeline(data.filePath, null, data.videoUrl);
-    } catch (err) {
-      alert(`Upload error: ${err.message}`);
+    const startTime = Date.now();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.floor((e.loaded / e.total) * 100);
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        const speedMBps = elapsedSec > 0.5 ? ((e.loaded / (1024 * 1024)) / elapsedSec).toFixed(1) : '...';
+        const loadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
+        
+        let estMsg = '';
+        if (elapsedSec > 2 && e.loaded > 0) {
+          const remainingSec = Math.round((e.total - e.loaded) / (e.loaded / elapsedSec));
+          const remMin = Math.floor(remainingSec / 60);
+          const remSec = remainingSec % 60;
+          estMsg = remMin > 0 ? ` • ~${remMin}m ${remSec}s left` : ` • ~${remSec}s left`;
+        }
+
+        setProcessingText(`Uploading ${file.name}: ${pct}% (${loadedMB} / ${totalMB} MB @ ${speedMBps} MB/s${estMsg})`);
+      }
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          setProcessingText('Upload complete! Extracting audio & preparing AI analysis...');
+          await runProcessingPipeline(data.filePath, null, data.videoUrl);
+        } catch (parseErr) {
+          alert('Upload failed: Invalid server response');
+          setView('ingestion');
+        }
+      } else {
+        let errMsg = `Upload failed (${xhr.status})`;
+        try {
+          const errObj = JSON.parse(xhr.responseText);
+          if (errObj.error) errMsg = errObj.error;
+        } catch (e) {
+          if (xhr.status === 502 || xhr.status === 503) {
+            errMsg = 'The server is temporarily starting up or busy. Please retry in a moment!';
+          }
+        }
+        alert(`Upload error: ${errMsg}`);
+        setView('ingestion');
+      }
+    };
+
+    xhr.onerror = () => {
+      alert('Upload failed due to network error. If your file is very large (e.g. 2GB), your internet connection may have timed out.');
       setView('ingestion');
-    }
+    };
+
+    xhr.send(formData);
   };
 
   // 3. Download URL handler
