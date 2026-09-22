@@ -39,7 +39,7 @@ function downloadUrl(url, outputDir, onProgress = null) {
     const args = [
       '--format', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
       '--merge-output-format', 'mp4',
-      '--extractor-args', 'youtube:player_client=android,web',
+      '--extractor-args', 'youtube:player_client=visionos,android',
       '-N', '8',                        // 8 concurrent connection fragments for 6-8x download speedup
       '--buffer-size', '16M',           // 16MB download buffer
       '--http-chunk-size', '10M',       // 10MB chunk size to defeat YouTube per-connection throttling
