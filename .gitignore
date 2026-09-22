@@ -40,7 +40,7 @@ venv/
 
 # Large ML Weights (auto-downloaded from Hugging Face if needed)
 *.onnx
-server/ml/models/**/*.onnx
+!server/services/models/face_detection_yunet_2023mar.onnx
 
 # Logs
 *.log

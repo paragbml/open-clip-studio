@@ -32,13 +32,29 @@ def get_yunet_model_path():
         print(f"Warning: Failed to auto-download YuNet: {e}", file=sys.stderr)
     return None
 
-def track_subject(video_path, start_time, duration, sample_fps=2):
+def resolve_ffmpeg_bin():
+    if os.environ.get('FFMPEG_PATH') and os.path.exists(os.environ.get('FFMPEG_PATH')):
+        return os.environ.get('FFMPEG_PATH')
+    # Try finding ffmpeg-static from project root or server dir
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(script_dir, '..', '..', 'node_modules', 'ffmpeg-static', 'ffmpeg'),
+        os.path.join(script_dir, '..', 'node_modules', 'ffmpeg-static', 'ffmpeg'),
+        '/opt/render/project/src/node_modules/ffmpeg-static/ffmpeg',
+        '/usr/local/bin/ffmpeg',
+        '/usr/bin/ffmpeg'
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return 'ffmpeg'
+
+def track_subject(video_path, start_time, duration, sample_fps=4):
     """
-    Cinema-Grade Active Speaker Tracking & Auto-Reframe Engine:
-    - Uses OpenCV native FaceDetectorYN (C++ YuNet) for 2ms face and landmark detection.
-    - Implements Deadband Cinema Stabilization: camera stays rock-solid on the subject,
-      filtering out natural micro-movements and head bobbing.
-    - Identifies dual-speaker interview layouts (host vs guest) with stable left/right coordinates.
+    Cinema-Grade High-Fidelity Active Speaker Tracking:
+    - Runs at 4 FPS sampling rate for responsive, lag-free motion capture.
+    - Preserves native 16:9 aspect ratio (640x360) so face proportions are not distorted.
+    - Employs Gaussian Moving Average & Cinema Deadband for butter-smooth camera panning.
     """
     abs_video_path = os.path.abspath(video_path)
     if not os.path.exists(abs_video_path):
@@ -69,32 +85,51 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
             "trajectory": []
         }
 
-    # Initialize OpenCV C++ FaceDetectorYN
+    # Initialize OpenCV C++ FaceDetectorYN with native 16:9 proportional dimensions (640x360)
+    frame_w = 640
+    frame_h = 360
     detector = cv2.FaceDetectorYN.create(
         yunet_path,
         '',
-        (640, 640),
-        0.32,  # Score threshold
+        (frame_w, frame_h),
+        0.30,  # Score threshold
         0.25,  # NMS threshold
         5000
     )
 
-    # Stream frames scaled to 640x640 BGR via fast FFmpeg seeking
+    ffmpeg_bin = resolve_ffmpeg_bin()
+
+    # Stream frames scaled to 640x360 BGR via fast FFmpeg seeking (preserving 16:9 aspect ratio)
     cmd = [
-        'ffmpeg',
+        ffmpeg_bin,
         '-v', 'quiet',
         '-ss', str(start_time),
         '-t', str(duration),
         '-i', abs_video_path,
-        '-vf', f'fps={sample_fps},scale=640:640',
+        '-vf', f'fps={sample_fps},scale={frame_w}:{frame_h}',
         '-f', 'image2pipe',
         '-vcodec', 'rawvideo',
         '-pix_fmt', 'bgr24',
         '-'
     ]
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    frame_size = 640 * 640 * 3
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"Failed to spawn FFmpeg ({ffmpeg_bin}): {e}", file=sys.stderr)
+        return {
+            "duration": duration,
+            "sampleCount": 0,
+            "avgX": 0.5,
+            "avgXPercent": 50.0,
+            "primarySpeakerXPercent": 50.0,
+            "hasTwoSpeakers": False,
+            "speakerLeftPercent": 30.0,
+            "speakerRightPercent": 70.0,
+            "trajectory": []
+        }
+
+    frame_size = frame_w * frame_h * 3
     time_step = 1.0 / sample_fps
 
     frame_detections = []
@@ -105,8 +140,8 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
         if not raw_frame or len(raw_frame) < frame_size:
             break
 
-        img = np.frombuffer(raw_frame, dtype=np.uint8).reshape((640, 640, 3))
-        detector.setInputSize((640, 640))
+        img = np.frombuffer(raw_frame, dtype=np.uint8).reshape((frame_h, frame_w, 3))
+        detector.setInputSize((frame_w, frame_h))
         _, raw_faces = detector.detect(img)
 
         faces = []
@@ -114,12 +149,12 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
             for f in raw_faces:
                 box = f[0:4]
                 conf = float(f[-1])
-                if conf < 0.32:
+                if conf < 0.28:
                     continue
-                w_frac = float(box[2] / 640.0)
-                h_frac = float(box[3] / 640.0)
-                cx = float((box[0] + box[2] / 2.0) / 640.0)
-                cy = float((box[1] + box[3] / 2.0) / 640.0)
+                w_frac = float(box[2] / float(frame_w))
+                h_frac = float(box[3] / float(frame_h))
+                cx = float((box[0] + box[2] / 2.0) / float(frame_w))
+                cy = float((box[1] + box[3] / 2.0) / float(frame_h))
                 area = w_frac * h_frac
                 faces.append({
                     'cx': cx,
@@ -134,11 +169,11 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
     proc.stdout.close()
     proc.wait()
 
-    # Step 2: Extract all valid face centers to analyze spatial distribution
+    # Step 2: Extract all valid face centers
     all_face_centers = []
     for fd in frame_detections:
         for fc in fd['faces']:
-            if 0.08 <= fc['cx'] <= 0.92:
+            if 0.06 <= fc['cx'] <= 0.94:
                 all_face_centers.append(fc['cx'])
 
     if not all_face_centers:
@@ -156,58 +191,80 @@ def track_subject(video_path, start_time, duration, sample_fps=2):
             "trajectory": traj
         }
 
-    # Step 3: Cluster analysis for two-speaker setups (e.g. podcast interview)
+    # Step 3: Spatial Cluster Analysis (Dual-speaker vs Single speaker)
     left_cluster = [x for x in all_face_centers if x < 0.44]
     right_cluster = [x for x in all_face_centers if x > 0.56]
     center_cluster = [x for x in all_face_centers if 0.44 <= x <= 0.56]
 
-    has_two_speakers = (len(left_cluster) >= 4 and len(right_cluster) >= 4 and (len(left_cluster) + len(right_cluster)) > len(center_cluster))
+    has_two_speakers = (len(left_cluster) >= 6 and len(right_cluster) >= 6 and (len(left_cluster) + len(right_cluster)) > len(center_cluster))
 
     avg_left = float(np.mean(left_cluster)) if left_cluster else 0.32
     avg_right = float(np.mean(right_cluster)) if right_cluster else 0.68
 
-    # Primary anchor: robust median of the dominant cluster
     if has_two_speakers:
         primary_anchor = avg_left if len(left_cluster) >= len(right_cluster) else avg_right
     else:
         primary_anchor = float(np.median(all_face_centers))
 
-    # Step 4: Cinema Deadband & Inertia Stabilization
-    # If overall speaker movement is within natural head-bobbing range (< 0.14),
-    # lock the camera firmly on the primary anchor with zero wobbling.
-    overall_span = max(all_face_centers) - min(all_face_centers)
-    is_stable_monologue = (overall_span < 0.14) and not has_two_speakers
-
-    current_camera_x = primary_anchor
-    trajectory = []
-    deadband = 0.08  # 8% screen deadband zone: camera stays still unless subject moves outside
+    # Step 4: Cinematic Damped Camera Tracking with Deadband & Gaussian Filter
+    # 1. Determine raw target X for each frame
+    raw_targets = []
+    last_known_x = primary_anchor
 
     for fd in frame_detections:
-        t = fd['t']
         faces = fd['faces']
-
-        if is_stable_monologue:
-            target_x = primary_anchor
-            speaker_label = "center"
-        elif faces:
-            dominant = max(faces, key=lambda f: f['area'] * f['conf'])
-            raw_cx = dominant['cx']
-            
-            # Deadband check: if within deadband box, camera holds position
-            if abs(raw_cx - current_camera_x) > deadband:
-                current_camera_x = 0.85 * current_camera_x + 0.15 * raw_cx
-            
-            target_x = current_camera_x
-            speaker_label = "left" if target_x < 0.44 else ("right" if target_x > 0.56 else "center")
+        if faces:
+            # Pick dominant speaker face weighted by area * confidence
+            dominant = max(faces, key=lambda f: f['area'] * (f['conf'] ** 1.5))
+            last_known_x = dominant['cx']
+            raw_targets.append(last_known_x)
         else:
-            target_x = current_camera_x
-            speaker_label = "center"
+            # If face momentarily hidden, gently hold last known target
+            raw_targets.append(last_known_x)
 
-        clamped_x = max(0.20, min(0.80, target_x))
+    # 2. Outlier rejection filter (ignore 1-frame spikes)
+    cleaned_targets = []
+    for i in range(len(raw_targets)):
+        window = raw_targets[max(0, i - 1):min(len(raw_targets), i + 2)]
+        cleaned_targets.append(float(np.median(window)))
+
+    # 3. Cinematic Exponential Moving Average (EMA) with Gentle Deadband
+    # Damping factor alpha = 0.16 gives buttery-smooth, fluid Steadicam motion without lag
+    alpha = 0.16
+    deadband = 0.035  # 3.5% deadband prevents micro head bobbing from causing camera jitter
+
+    smoothed_camera_x = []
+    curr_cam_x = primary_anchor
+
+    for target in cleaned_targets:
+        delta = target - curr_cam_x
+        if abs(delta) > deadband:
+            # Smoothly track target
+            effective_target = target - np.sign(delta) * (deadband * 0.5)
+            curr_cam_x = curr_cam_x + alpha * (effective_target - curr_cam_x)
+        else:
+            # Very slow drift to center on the subject
+            curr_cam_x = curr_cam_x + 0.02 * delta
+        
+        # Clamp camera center to avoid black bars in 9:16 vertical crop
+        clamped = max(0.20, min(0.80, curr_cam_x))
+        smoothed_camera_x.append(clamped)
+
+    # 4. Final 3-tap Gaussian blur pass over camera coordinates to eliminate any residual jerkiness
+    kernel = np.array([0.25, 0.5, 0.25])
+    padded = np.pad(smoothed_camera_x, (1, 1), mode='edge')
+    final_coords = np.convolve(padded, kernel, mode='valid')
+
+    # Construct clean trajectory payload
+    trajectory = []
+    for i, fd in enumerate(frame_detections):
+        t = fd['t']
+        x_val = float(final_coords[i])
+        speaker_label = "left" if x_val < 0.44 else ("right" if x_val > 0.56 else "center")
         trajectory.append({
             "t": round(t, 2),
-            "x": round(clamped_x, 3),
-            "xPercent": round(clamped_x * 100.0, 1),
+            "x": round(x_val, 3),
+            "xPercent": round(x_val * 100.0, 1),
             "activeSpeaker": speaker_label
         })
 

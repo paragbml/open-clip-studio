@@ -242,7 +242,13 @@ function trackSubject(videoPath, startTime, duration) {
     const targetStart = hasPreview ? 0 : startTime;
 
     const cmd = `python3 "${scriptPath}" "${targetPath}" ${targetStart} ${duration}`;
-    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+    exec(cmd, {
+      maxBuffer: 10 * 1024 * 1024,
+      env: {
+        ...process.env,
+        FFMPEG_PATH: FFMPEG_BIN
+      }
+    }, (err, stdout, stderr) => {
       inflightTracking.delete(cacheKey);
       if (err) {
         console.warn('Subject tracking fallback to center (50%):', stderr || err.message);
@@ -277,61 +283,50 @@ function generateDynamicCropExpression(trajectory, defaultXPercent = 50.0) {
   const maxX = Math.max(...xs);
   const spread = maxX - minX;
 
-  // If camera motion span is small (under 12% frame width), lock camera stationary on the median.
-  // This completely eliminates wobbling, pendulum panning, and artificial motion in talk/monologue clips!
-  if (spread < 0.12) {
+  // If camera motion span is tiny (under 4% frame width), lock camera smoothly on the median
+  if (spread < 0.04) {
     const sorted = [...xs].sort((a, b) => a - b);
     const medianX = sorted[Math.floor(sorted.length / 2)];
-    const xFrac = Math.max(0.18, Math.min(0.82, medianX)).toFixed(3);
+    const xFrac = Math.max(0.20, Math.min(0.80, medianX)).toFixed(3);
     return `min(max(0\\,in_w*${xFrac}-540)\\,in_w-1080)`;
   }
 
-  // For clips with genuine movement across the frame or speaker cuts:
-  // Step 1: Filter to keyframe events where motion exceeds 7% deadband
+  // Build clean, evenly spaced keyframes (at least every 1s or on 3% motion shift)
   const keyframes = [trajectory[0]];
   for (let i = 1; i < trajectory.length; i++) {
     const curr = trajectory[i];
     const prev = keyframes[keyframes.length - 1];
     const dx = Math.abs(curr.x - prev.x);
-    // Only register a keyframe if subject moved significantly (> 7% of screen width)
-    if (dx >= 0.07 || i === trajectory.length - 1) {
+    const dt = curr.t - prev.t;
+
+    // Register a keyframe on moderate motion (> 3%) or time interval >= 1.0s
+    if (dx >= 0.03 || dt >= 1.0 || i === trajectory.length - 1) {
       keyframes.push(curr);
     }
   }
 
   if (keyframes.length <= 1) {
-    const xFrac = Math.max(0.18, Math.min(0.82, keyframes[0].x)).toFixed(3);
+    const xFrac = Math.max(0.20, Math.min(0.80, keyframes[0].x)).toFixed(3);
     return `min(max(0\\,in_w*${xFrac}-540)\\,in_w-1080)`;
   }
 
-  // Step 2: Ensure anchor at t=0
+  // Ensure anchor at t=0
   if (keyframes[0].t > 0) {
     keyframes.unshift({ t: 0, x: keyframes[0].x });
   }
 
-  // Step 3: Build eased smoothstep camera interpolation chain
-  // For long stationary holds between movements, hold stationary until transition window
+  // Build fluid continuous smoothstep camera interpolation chain
+  // Smoothstep S(u) = u * u * (3 - 2 * u) guarantees 0 acceleration at keyframe boundaries
   let expr = `${keyframes[keyframes.length - 1].x.toFixed(3)}`;
   for (let i = keyframes.length - 2; i >= 0; i--) {
     const k0 = keyframes[i];
     const k1 = keyframes[i + 1];
-    const duration = Math.max(0.2, k1.t - k0.t);
-    // If interval is long (> 1.2s), only glide during the final 0.8s into k1, holding k0 before that
-    if (duration > 1.2) {
-      const transStart = (k1.t - 0.8).toFixed(2);
-      const transDur = "0.80";
-      const u = `((t-${transStart})/${transDur})`;
-      const smoothU = `(${u}*${u}*(3-2*${u}))`;
-      const lerp = `(${k0.x.toFixed(3)}+(${k1.x.toFixed(3)}-${k0.x.toFixed(3)})*${smoothU})`;
-      // If before transStart, hold k0.x; if between transStart and k1.t, lerp; else expr
-      expr = `if(lt(t\\,${transStart})\\,${k0.x.toFixed(3)}\\,if(lt(t\\,${k1.t.toFixed(2)})\\,${lerp}\\,${expr}))`;
-    } else {
-      const dt = duration.toFixed(2);
-      const u = `((t-${k0.t.toFixed(2)})/${dt})`;
-      const smoothU = `(${u}*${u}*(3-2*${u}))`;
-      const lerp = `(${k0.x.toFixed(3)}+(${k1.x.toFixed(3)}-${k0.x.toFixed(3)})*${smoothU})`;
-      expr = `if(lt(t\\,${k1.t.toFixed(2)})\\,${lerp}\\,${expr})`;
-    }
+    const duration = Math.max(0.25, k1.t - k0.t);
+    const dt = duration.toFixed(2);
+    const u = `((t-${k0.t.toFixed(2)})/${dt})`;
+    const smoothU = `(${u}*${u}*(3-2*${u}))`;
+    const lerp = `(${k0.x.toFixed(3)}+(${k1.x.toFixed(3)}-${k0.x.toFixed(3)})*${smoothU})`;
+    expr = `if(lt(t\\,${k1.t.toFixed(2)})\\,${lerp}\\,${expr})`;
   }
 
   return `min(max(0\\,(${expr})*in_w-540)\\,in_w-1080)`;

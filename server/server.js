@@ -174,6 +174,15 @@ app.get('/api/status', (req, res) => {
   } catch (e) {
     ytdlpResolved = e.message;
   }
+
+  let pythonCv2Status = 'unknown';
+  try {
+    const py = require('child_process').execSync('python3 -c "import cv2; print(cv2.__version__)" 2>&1').toString().trim();
+    pythonCv2Status = `cv2 ${py}`;
+  } catch (e) {
+    pythonCv2Status = `error: ${e.message}`;
+  }
+
   res.json({
     status: 'ok',
     version: '1.0.1',
@@ -185,7 +194,8 @@ app.get('/api/status', (req, res) => {
     githubToken: ghTok,
     ffmpegReady: true,
     ytdlpReady: Boolean(ytdlpResolved),
-    ytdlpPath: ytdlpResolved
+    ytdlpPath: ytdlpResolved,
+    pythonCv2Status
   });
 });
 

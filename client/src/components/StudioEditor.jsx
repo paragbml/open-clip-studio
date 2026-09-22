@@ -304,9 +304,9 @@ export default function StudioEditor({
       return singleSpeakerFocusX || trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50.0;
     }
 
-    // Deadband check: if speaker movement variation is under 12%, lock firmly to primary speaker anchor
+    // Deadband check: if overall speaker motion variation is under 4%, lock to primary speaker
     const xs = traj.map(pt => pt.xPercent);
-    if (Math.max(...xs) - Math.min(...xs) < 12.0) {
+    if (Math.max(...xs) - Math.min(...xs) < 4.0) {
       return trackingData?.primarySpeakerXPercent || trackingData?.avgXPercent || 50.0;
     }
 
@@ -319,7 +319,7 @@ export default function StudioEditor({
       const p1 = traj[i + 1];
       if (t >= p0.t && t <= p1.t) {
         const dt = Math.max(0.01, p1.t - p0.t);
-        const u = (t - p0.t) / dt;
+        const u = Math.max(0, Math.min(1, (t - p0.t) / dt));
         const smoothU = u * u * (3 - 2 * u);
         return p0.xPercent + (p1.xPercent - p0.xPercent) * smoothU;
       }
@@ -988,7 +988,9 @@ export default function StudioEditor({
                         ? `${getCssObjectPosition(getCurrentTrackingX())}% center`
                         : (reframeMode === 'crop_center' ? `${getCssObjectPosition(50)}% center` : 'center center'),
                       transform: isZoomedPunch ? 'scale(1.16) translate(1px, -2px)' : 'scale(1.0)',
-                      transition: isZoomedPunch ? 'transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'transform 0.4s ease-out, object-position 0.25s ease-out',
+                      transition: isZoomedPunch
+                        ? 'transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), object-position 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                        : 'transform 0.4s ease-out, object-position 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)',
                       zIndex: 2,
                       backgroundColor: '#000000',
                       cursor: 'pointer'
