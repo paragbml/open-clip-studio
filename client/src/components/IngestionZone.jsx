@@ -367,16 +367,28 @@ export default function IngestionZone({
             <LinkIcon size={20} color="#cbd5e1" strokeWidth={1.5} />
           </div>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: '5px', color: '#ffffff' }}>
-            Import Public Video URL
+            Import Stream, VOD, or Video URL
           </h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            Paste YouTube, Twitter/X, Vimeo, or Twitch links
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+            Paste links from YouTube, Twitch, Kick, Twitter/X, or Vimeo
           </p>
+
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+              YouTube
+            </span>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+              Twitch VODs &amp; Clips
+            </span>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+              Kick VODs &amp; Clips
+            </span>
+          </div>
 
           <form onSubmit={handleSubmitUrl} style={{ display: 'flex', gap: '8px' }}>
             <input
               type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="Paste YouTube, Twitch, or Kick URL..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               style={{
