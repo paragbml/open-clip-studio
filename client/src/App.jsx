@@ -52,6 +52,7 @@ export default function App() {
       geminiApiKey: localStorage.getItem('openclip_gemini_key') || '',
       groqApiKey: localStorage.getItem('openclip_groq_key') || '',
       githubToken: localStorage.getItem('openclip_github_token') || '',
+      nvidiaApiKey: localStorage.getItem("openclip_nvidia_key") || "",
       backendUrl: localStorage.getItem('openclip_backend_url') || '',
       ytCookies: localStorage.getItem('openclip_yt_cookies') || ''
     };
@@ -108,6 +109,7 @@ export default function App() {
     localStorage.setItem('openclip_gemini_key', newKeys.geminiApiKey || '');
     localStorage.setItem('openclip_groq_key', newKeys.groqApiKey || '');
     localStorage.setItem('openclip_github_token', newKeys.githubToken || '');
+    localStorage.setItem('openclip_nvidia_key', newKeys.nvidiaApiKey || '');
     localStorage.setItem('openclip_backend_url', newKeys.backendUrl || '');
     localStorage.setItem('openclip_yt_cookies', newKeys.ytCookies || '');
   };
@@ -163,6 +165,7 @@ export default function App() {
 
   const [scanMode, setScanMode] = useState('lightning');
   const [enableHookScan, setEnableHookScan] = useState(true);
+  const [maxClips, setMaxClips] = useState(10);
 
   // 1. Process Video Pipeline
   const runProcessingPipeline = async (filePath, vttPath = null, videoUrl = null) => {
@@ -186,8 +189,10 @@ export default function App() {
           geminiApiKey: apiKeys.geminiApiKey,
           groqApiKey: apiKeys.groqApiKey,
           githubToken: apiKeys.githubToken,
+          nvidiaApiKey: apiKeys.nvidiaApiKey,
           scanMode,
-          enableHookScan
+          enableHookScan,
+          maxClips
         })
       });
 
@@ -479,6 +484,8 @@ export default function App() {
               onScanModeChange={setScanMode}
               enableHookScan={enableHookScan}
               onEnableHookScanChange={setEnableHookScan}
+              maxClips={maxClips}
+              onMaxClipsChange={setMaxClips}
               isLoading={false}
               isStaticDemo={Boolean(!apiKeys.backendUrl && (systemStatus?.isStaticDemo || (typeof window !== 'undefined' && window.location.hostname.includes('github.io'))))}
               backendUrl={apiKeys.backendUrl}

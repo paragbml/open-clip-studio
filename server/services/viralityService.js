@@ -892,6 +892,84 @@ Return ONLY a valid JSON array of objects with keys:
 }
 
 /**
+ * NVIDIA NIM-based clip discovery
+ */
+async function analyzeClipsWithNVIDIA(words, fullText, videoDuration, apiKey) {
+  const prompt = `You are a viral shorts editor for TikTok and YouTube Shorts.
+Analyze this transcript and find the top 5 most ENGAGING clips, each strictly between 30 and 45 seconds.
+Return ONLY a valid JSON array:
+[
+  {
+    "start": 88.0,
+    "end": 124.0,
+    "viralityScore": 98,
+    "hookType": "Intense Debate",
+    "title": "NVIDIA Clip 🎯",
+    "viralityReason": "NVIDIA NIM AI-powered clip discovery.",
+    "hashtags": ["#shorts", "#viral"]
+  }
+]`;
+  return new Promise((resolve) => {
+    const postData = JSON.stringify({
+      model: "meta/llama-3.1-8b-instruct",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 1024
+    });
+
+    const options = {
+      hostname: "integrate.api.nvidia.com",
+      path: "/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(postData)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", chunk => data += chunk);
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          const raw = parsed.choices?.[0]?.message?.content || "";
+          const cleanRaw = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+          const jsonRes = JSON.parse(cleanRaw);
+          const clipList = Array.isArray(jsonRes) ? jsonRes : (jsonRes.clips || jsonRes.segments || []);
+
+          if (clipList.length > 0) {
+            const enriched = clipList.map((c, i) => {
+              const start = Math.max(0, parseFloat(c.start));
+              const end = Math.min(videoDuration, parseFloat(c.end));
+              return {
+                id: `clip_nvidia_${i + 1}`,
+                ...c,
+                start, end,
+                duration: parseFloat((end - start).toFixed(2)),
+                words: words.filter(w => w.start >= start - 0.2 && w.end <= end + 0.2),
+                suitablePlatforms: ["TikTok", "YouTube Shorts", "Instagram Reels"]
+              };
+            });
+            return resolve(enriched);
+          }
+          resolve(null);
+        } catch (e) {
+          console.warn("NVIDIA NIM parse error:", e.message);
+          resolve(null);
+        }
+      });
+    });
+
+    req.on("error", (err) => {
+      console.warn("NVIDIA NIM request error:", err.message);
+      resolve(null);
+    });
+    req.write(postData);
+    });
+}
+/**
  * Scores candidate clips using the proprietary agency multimodal ML model (v3 - Deep Transformer & Physical Acoustics)
  */
 function scoreClipsWithAgencyML(clips, options = {}) {
@@ -1135,7 +1213,8 @@ async function discoverViralClips(words, fullText, videoDuration, keys = {}, opt
   const githubToken = (typeof keys === 'string' ? null : keys?.githubToken) || process.env.GITHUB_TOKEN;
   const groqKey = (typeof keys === 'string' ? null : keys?.groqApiKey) || process.env.GROQ_API_KEY;
   const geminiKey = (typeof keys === 'string' ? keys : keys?.geminiApiKey) || process.env.GEMINI_API_KEY;
-  const { enableHookScan = true } = options;
+  const nvidiaKey = (typeof keys === 'string' ? null : keys?.nvidiaApiKey) || process.env.NVIDIA_API_KEY;
+  const { enableHookScan = true, maxClips = 6 } = options;
 
   // ─── STRATEGY: LLM-First Discovery with Heuristic Hybridization ───
   // LLMs understand content meaning and find genuinely engaging moments.
@@ -1180,6 +1259,17 @@ async function discoverViralClips(words, fullText, videoDuration, keys = {}, opt
       console.warn('[ViralEngine] Gemini discovery error:', e.message);
     }
   }
+    if ((!llmCandidates || llmCandidates.length === 0) && nvidiaKey) {
+      try {
+        console.log("[ViralEngine] Using NVIDIA NIM for primary clip discovery...");
+        llmCandidates = await analyzeClipsWithNVIDIA(words, fullText, videoDuration, nvidiaKey);
+        if (llmCandidates && llmCandidates.length > 0) {
+          console.log(`[ViralEngine] NVIDIA NIM discovered ${llmCandidates.length} engaging clips`);
+        }
+      } catch (e) {
+        console.warn("[ViralEngine] NVIDIA NIM discovery error:", e.message);
+      }
+    }
 
   // 2. Always run heuristic analysis as secondary source
   let heuristicCandidates = analyzeClipsDynamically(words, fullText, videoDuration, { enableHookScan });
@@ -1191,7 +1281,7 @@ async function discoverViralClips(words, fullText, videoDuration, keys = {}, opt
     candidates = [...llmCandidates];
     
     // Add non-overlapping heuristic candidates as extras
-    for (const hCand of heuristicCandidates.slice(0, 8)) {
+    for (const hCand of heuristicCandidates.slice(0, maxClips * 2)) {
       const overlapsLLM = candidates.some(existing => {
         const overlapStart = Math.max(hCand.start, existing.start);
         const overlapEnd = Math.min(hCand.end, existing.end);
@@ -1212,8 +1302,8 @@ async function discoverViralClips(words, fullText, videoDuration, keys = {}, opt
   // 4. Score top candidates using 36-D Multimodal Agency ML Engine + MiniLM ONNX Transformer
   if (candidates && candidates.length > 0) {
     try {
-      const topPool = candidates.slice(0, 20);
-      const restPool = candidates.slice(20);
+      const topPool = candidates.slice(0, maxClips * 2);
+      const restPool = candidates.slice(maxClips * 2);
       const scoredTop = await scoreClipsWithAgencyML(topPool, options);
       candidates = [...scoredTop, ...restPool];
     } catch (e) {
@@ -1241,7 +1331,7 @@ async function discoverViralClips(words, fullText, videoDuration, keys = {}, opt
     });
     if (!isOverlapping) {
       deduplicated.push(cand);
-      if (deduplicated.length >= 6) break;
+      if (deduplicated.length >= maxClips) break;
     }
   }
 
@@ -1253,7 +1343,7 @@ async function discoverViralClips(words, fullText, videoDuration, keys = {}, opt
     }
   }
 
-  return deduplicated.length > 0 ? deduplicated : candidates.slice(0, 6);
+  return deduplicated.length > 0 ? deduplicated : candidates.slice(0, maxClips);
 }
 
 /**

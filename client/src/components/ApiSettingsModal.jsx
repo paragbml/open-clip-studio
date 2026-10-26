@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Key, ShieldCheck, Zap, Sparkles, Server } from 'lucide-react';
+import { X, Key, ShieldCheck, Zap, Sparkles, Server, Bot } from 'lucide-react';
 
 export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialKeys }) {
   const [geminiKey, setGeminiKey] = useState(initialKeys?.geminiApiKey || '');
   const [groqKey, setGroqKey] = useState(initialKeys?.groqApiKey || '');
   const [githubToken, setGithubToken] = useState(initialKeys?.githubToken || '');
+  const [nvidiaApiKey, setNvidiaApiKey] = useState(initialKeys?.nvidiaApiKey || '');
   const [backendUrl, setBackendUrl] = useState(initialKeys?.backendUrl || '');
   const [ytCookies, setYtCookies] = useState(initialKeys?.ytCookies || '');
 
@@ -15,6 +16,7 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
       geminiApiKey: geminiKey.trim(),
       groqApiKey: groqKey.trim(),
       githubToken: githubToken.trim(),
+      nvidiaApiKey: nvidiaApiKey.trim(),
       backendUrl: backendUrl.trim().replace(/\/$/, ''),
       ytCookies: ytCookies.trim()
     });
@@ -137,6 +139,32 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
             />
             <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
               Enables Whisper Large-v3 speech recognition at ~100x real-time speed. Free from console.groq.com.
+            </p>
+          </div>
+
+
+          <div>
+            <label style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Zap size={14} color="#f59e0b" />
+              NVIDIA API Key (NIM)
+            </label>
+            <input
+              type="password"
+              placeholder="nvapi_..."
+              value={nvidiaApiKey}
+              onChange={(e) => setNvidiaApiKey(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid var(--border-subtle)',
+                color: '#ffffff',
+                fontSize: '0.88rem'
+              }}
+            />
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+              Enables NVIDIA NIM for AI-powered clip discovery using Llama 3.1 8B Instruct model. Get one at https://builder.nvidia.com/nim.
             </p>
           </div>
 
