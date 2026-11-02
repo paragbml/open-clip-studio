@@ -11,9 +11,20 @@ export default function ApiSettingsModal({ isOpen, onClose, onSaveKeys, initialK
   if (!isOpen) return null;
 
   const handleSave = () => {
+    let cleanGroq = groqKey.trim();
+    let cleanGemini = geminiKey.trim();
+
+    // Smart-split if user pasted combined keys (e.g. gsk_...AQ.Ab8...)
+    if (cleanGroq.includes('AQ.') || cleanGroq.includes('AIzaSy')) {
+      const gMatch = cleanGroq.match(/gsk_[a-zA-Z0-9]+/);
+      const gemMatch = cleanGroq.match(/(AQ\.[a-zA-Z0-9_-]+|AIzaSy[a-zA-Z0-9_-]+)/);
+      if (gMatch) cleanGroq = gMatch[0];
+      if (gemMatch && !cleanGemini) cleanGemini = gemMatch[0];
+    }
+
     onSaveKeys({
-      geminiApiKey: geminiKey.trim(),
-      groqApiKey: groqKey.trim(),
+      geminiApiKey: cleanGemini,
+      groqApiKey: cleanGroq,
       githubToken: githubToken.trim(),
       backendUrl: backendUrl.trim().replace(/\/$/, ''),
       ytCookies: ytCookies.trim()

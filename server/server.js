@@ -192,7 +192,7 @@ app.get('/api/status', (req, res) => {
 
   res.json({
     status: 'ok',
-    version: '1.0.3',
+    version: '1.0.4',
     platform: 'OpenClip Studio',
     pricing: '100% Free & Open-Source',
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),

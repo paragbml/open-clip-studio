@@ -108,6 +108,10 @@ function runLocalWhisper(audioPath, options = {}) {
  */
 async function transcribeWithGroq(audioPath, apiKey) {
   return new Promise((resolve, reject) => {
+    // Sanitize key (e.g. if user pasted concatenated keys or extra characters)
+    const cleanKeyMatch = apiKey ? String(apiKey).match(/gsk_[a-zA-Z0-9]+/) : null;
+    const effectiveKey = cleanKeyMatch ? cleanKeyMatch[0] : String(apiKey).trim();
+
     // If audio is huge (> 25MB), compress to 32kbps mono MP3 for Groq in 1 second
     let sendPath = audioPath;
     let tempMp3 = null;
@@ -149,7 +153,8 @@ async function transcribeWithGroq(audioPath, apiKey) {
       path: '/openai/v1/audio/transcriptions',
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${effectiveKey}`,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
         'Content-Length': fullPayload.length
       }
