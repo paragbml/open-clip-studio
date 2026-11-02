@@ -377,12 +377,13 @@ app.post('/api/jobs/process', async (req, res) => {
 
       const meta = await probeVideo(filePath);
       const maxExtractSec = (scanMode === 'lightning' && meta.duration > 600) ? 600 : null;
+      const hasGroqKey = Boolean(groqApiKey || process.env.GROQ_API_KEY);
       const audioPath = path.join(UPLOAD_DIR, `${path.basename(filePath, path.extname(filePath))}_audio.wav`);
-      await extractAudio(filePath, audioPath, maxExtractSec);
+      const actualAudioPath = await extractAudio(filePath, audioPath, maxExtractSec, hasGroqKey);
 
       job.step = 2;
       job.progressText = 'Transcribing speech & aligning word timestamps...';
-      const transcript = await transcribeAudio(audioPath, {
+      const transcript = await transcribeAudio(actualAudioPath, {
         groqApiKey,
         existingVttPath: vttPath,
         estimatedDuration: meta.duration,
@@ -396,7 +397,7 @@ app.post('/api/jobs/process', async (req, res) => {
         transcript.text,
         meta.duration,
         { geminiApiKey, groqApiKey, githubToken: githubToken || process.env.GITHUB_TOKEN },
-        { enableHookScan, audioPath, filePath }
+        { enableHookScan, audioPath: actualAudioPath, filePath }
       );
 
       job.step = 5;
@@ -469,11 +470,12 @@ app.post('/api/process', async (req, res) => {
     // 2. Extract 16kHz audio:
     // For long videos (>10 mins) in lightning mode, extract target chunk (600s) in 1.5 seconds instead of 5 minutes!
     const maxExtractSec = (scanMode === 'lightning' && meta.duration > 600) ? 600 : null;
+    const hasGroqKey = Boolean(groqApiKey || process.env.GROQ_API_KEY);
     const audioPath = path.join(UPLOAD_DIR, `${path.basename(filePath, path.extname(filePath))}_audio.wav`);
-    await extractAudio(filePath, audioPath, maxExtractSec);
+    const actualAudioPath = await extractAudio(filePath, audioPath, maxExtractSec, hasGroqKey);
 
     // 3. Transcription (Lightning mode pre-trims long files for fast 30s processing on CPU)
-    const transcript = await transcribeAudio(audioPath, {
+    const transcript = await transcribeAudio(actualAudioPath, {
       groqApiKey,
       existingVttPath: vttPath,
       estimatedDuration: meta.duration,
@@ -486,7 +488,7 @@ app.post('/api/process', async (req, res) => {
       transcript.text,
       meta.duration,
       { geminiApiKey, groqApiKey, githubToken: githubToken || process.env.GITHUB_TOKEN },
-      { enableHookScan, audioPath, filePath }
+      { enableHookScan, audioPath: actualAudioPath, filePath }
     );
 
     res.json({

@@ -151,11 +151,80 @@ function generateClipPreview(inputPath, startTime, duration, outputPreviewPath) 
 }
 
 /**
- * Extracts 16kHz mono audio for transcription
- * Supports maxDuration to instantly extract target chunk (e.g. 10m) from long 2hr+ streams
+ * Extracts audio for transcription.
+ * Two modes:
+ *   - streamCopy=true (when Groq API will be used): Zero-CPU stream-copy extraction (~0.3s).
+ *     Groq accepts MP3/AAC/OGG directly, so no PCM transcode needed.
+ *   - streamCopy=false (local Whisper): Full 16kHz mono PCM WAV decode.
+ * Both paths enforce a hard 90-second timeout so Render's 0.5 CPU never hangs forever.
  */
-function extractAudio(videoPath, audioOutputPath, maxDuration = null) {
+function extractAudio(videoPath, audioOutputPath, maxDuration = null, streamCopy = false) {
   return new Promise((resolve, reject) => {
+    // If stream-copy mode, extract audio track as-is (no transcode, instant on any CPU)
+    if (streamCopy) {
+      const scOutputPath = audioOutputPath.replace(/\.wav$/, '.m4a');
+      const scArgs = [
+        '-y',
+        '-loglevel', 'warning'
+      ];
+      if (maxDuration && Number(maxDuration) > 0) {
+        scArgs.push('-ss', '0', '-t', String(maxDuration));
+      }
+      scArgs.push(
+        '-i', videoPath,
+        '-vn',
+        '-c:a', 'copy',   // Zero-CPU: just demux the audio track
+        scOutputPath
+      );
+
+      const scProc = spawn(FFMPEG_BIN, scArgs);
+      let scStderr = '';
+      const scTimeout = setTimeout(() => {
+        try { scProc.kill('SIGKILL'); } catch (e) {}
+        reject(new Error('Audio stream-copy timed out (90s). The video may be corrupt.'));
+      }, 90000);
+
+      scProc.stderr.on('data', data => scStderr += data.toString());
+      scProc.on('close', code => {
+        clearTimeout(scTimeout);
+        if (code === 0 && fs.existsSync(scOutputPath) && fs.statSync(scOutputPath).size > 500) {
+          resolve(scOutputPath);
+        } else {
+          // Fallback: try fast low-bitrate MP3 encode (still way faster than PCM WAV)
+          const mp3Path = audioOutputPath.replace(/\.wav$/, '.mp3');
+          const mp3Args = [
+            '-y', '-loglevel', 'warning'
+          ];
+          if (maxDuration && Number(maxDuration) > 0) {
+            mp3Args.push('-ss', '0', '-t', String(maxDuration));
+          }
+          mp3Args.push(
+            '-i', videoPath,
+            '-vn', '-ar', '16000', '-ac', '1', '-b:a', '32k',
+            mp3Path
+          );
+          const mp3Proc = spawn(FFMPEG_BIN, mp3Args);
+          let mp3Stderr = '';
+          const mp3Timeout = setTimeout(() => {
+            try { mp3Proc.kill('SIGKILL'); } catch (e) {}
+            reject(new Error('Audio MP3 extraction timed out (90s). Server CPU is overloaded.'));
+          }, 90000);
+
+          mp3Proc.stderr.on('data', data => mp3Stderr += data.toString());
+          mp3Proc.on('close', mp3Code => {
+            clearTimeout(mp3Timeout);
+            if (mp3Code === 0 && fs.existsSync(mp3Path) && fs.statSync(mp3Path).size > 500) {
+              resolve(mp3Path);
+            } else {
+              reject(new Error(`FFmpeg audio extraction failed: ${mp3Stderr || scStderr}`));
+            }
+          });
+        }
+      });
+      return;
+    }
+
+    // Standard PCM path for local Whisper
     const args = [
       '-y',
       '-threads', '4',
@@ -178,8 +247,15 @@ function extractAudio(videoPath, audioOutputPath, maxDuration = null) {
     const proc = spawn(FFMPEG_BIN, args);
     let stderr = '';
 
+    // Hard 90-second timeout to prevent infinite hangs on weak CPUs
+    const timeout = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch (e) {}
+      reject(new Error('Audio extraction timed out (90s). Server CPU is too slow for PCM decode. Please add a free Groq API key in Settings for instant cloud transcription.'));
+    }, 90000);
+
     proc.stderr.on('data', data => stderr += data.toString());
     proc.on('close', code => {
+      clearTimeout(timeout);
       if (code === 0) {
         resolve(audioOutputPath);
       } else {

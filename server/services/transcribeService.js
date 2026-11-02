@@ -142,7 +142,8 @@ async function transcribeWithGroq(audioPath, apiKey) {
 
     body += `--${boundary}\r\n`;
     body += `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`;
-    body += `Content-Type: ${fileName.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav'}\r\n\r\n`;
+    const mimeType = fileName.endsWith('.mp3') ? 'audio/mpeg' : fileName.endsWith('.m4a') || fileName.endsWith('.aac') ? 'audio/mp4' : fileName.endsWith('.ogg') ? 'audio/ogg' : 'audio/wav';
+    body += `Content-Type: ${mimeType}\r\n\r\n`;
 
     const payloadHeader = Buffer.from(body, 'utf-8');
     const payloadFooter = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8');
