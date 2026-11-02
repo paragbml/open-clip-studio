@@ -37,6 +37,7 @@ function downloadUrl(url, outputDir, onProgress = null, customCookies = null) {
     const outputTemplate = path.join(outputDir, `${fileId}.%(ext)s`);
 
     const isYouTube = /youtu\.?be/i.test(url);
+    const isKick = /kick\.com/i.test(url);
     const cookieFile = path.join(__dirname, '../yt-cookies.txt');
     
     let cookieArgs = ['--no-cookies'];
@@ -70,6 +71,8 @@ function downloadUrl(url, outputDir, onProgress = null, customCookies = null) {
       ? ['--extractor-args', 'youtube:player_client=visionos']
       : [];
 
+    const impersonateArgs = isKick ? ['--impersonate', 'Chrome'] : [];
+
     const ffmpegArgs = (ffmpegStaticPath && fs.existsSync(ffmpegStaticPath))
       ? ['--ffmpeg-location', ffmpegStaticPath]
       : [];
@@ -78,6 +81,7 @@ function downloadUrl(url, outputDir, onProgress = null, customCookies = null) {
       '--format', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
       '--merge-output-format', 'mp4',
       ...extractorArgs,
+      ...impersonateArgs,
       ...ffmpegArgs,
       '--js-runtimes', 'node',
       '-N', '8',                        // 8 concurrent connection fragments for fast downloads
