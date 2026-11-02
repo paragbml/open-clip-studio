@@ -47,7 +47,7 @@ function normalizeVideoUrl(inputUrl) {
 /**
  * Downloads a video from URL (YouTube, Twitch, Kick, Vimeo, etc.)
  */
-function downloadUrl(rawUrl, outputDir, onProgress = null, customCookies = null) {
+function downloadUrl(rawUrl, outputDir, onProgress = null, customCookies = null, options = {}) {
   const url = normalizeVideoUrl(rawUrl);
   return new Promise((resolve, reject) => {
     const fileId = `dl_${Date.now()}`;
@@ -94,9 +94,17 @@ function downloadUrl(rawUrl, outputDir, onProgress = null, customCookies = null)
       ? ['--ffmpeg-location', ffmpegStaticPath]
       : [];
 
+    // Fast highlight sectioning: Default to first 10 minutes so cloud downloads finish in ~10s instead of timing out
+    const maxMinutes = options.maxMinutes !== undefined ? options.maxMinutes : 10;
+    const isFull = Boolean(options.full);
+    const sectionArgs = (!isFull && maxMinutes && maxMinutes > 0)
+      ? ['--download-sections', `*00:00:00-00:${String(maxMinutes).padStart(2, '0')}:00`]
+      : [];
+
     const args = [
       '--format', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
       '--merge-output-format', 'mp4',
+      ...sectionArgs,
       ...extractorArgs,
       ...impersonateArgs,
       ...ffmpegArgs,

@@ -164,43 +164,87 @@ export default function App() {
   const [scanMode, setScanMode] = useState('lightning');
   const [enableHookScan, setEnableHookScan] = useState(true);
 
-  // 1. Process Video Pipeline
+  // Resilient Async Job Poller (Zero-timeout cloud architecture)
+  const pollJob = async (jobId, onProgress) => {
+    let consecutiveErrors = 0;
+    while (true) {
+      await new Promise(r => setTimeout(r, 1200));
+      try {
+        const data = await safeFetchJson(`/api/jobs/${jobId}`);
+        consecutiveErrors = 0;
+        const job = data.job;
+        if (!job) continue;
+
+        if (onProgress) onProgress(job);
+
+        if (job.status === 'completed') {
+          return job.result;
+        }
+        if (job.status === 'failed') {
+          throw new Error(job.error || 'Operation failed on server');
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('failed on server') || err.message.includes('not found'))) {
+          throw err;
+        }
+        consecutiveErrors++;
+        // If 15 consecutive network errors (~20 seconds of no server response)
+        if (consecutiveErrors > 15) {
+          throw new Error('Lost connection to server. Please check your internet or retry.');
+        }
+      }
+    }
+  };
+
+  // 1. Process Video Pipeline (Async & Synchronous fallback)
   const runProcessingPipeline = async (filePath, vttPath = null, videoUrl = null) => {
     setView('processing');
     setProcessingStep(1);
     setProcessingText('Extracting 16kHz audio stream via FFmpeg...');
 
     try {
-      const stepTimer1 = setTimeout(() => {
-        setProcessingStep(2);
-        const modeLabel = scanMode === 'lightning' ? 'Lightning Mode (first 10 mins)' : 'Full Video Mode';
-        setProcessingText(`Transcribing speech with Faster-Whisper (${modeLabel} • 8 CPU cores active)...`);
-      }, 800);
+      let procResult = null;
 
-      const data = await safeFetchJson('/api/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filePath,
-          vttPath,
-          geminiApiKey: apiKeys.geminiApiKey,
-          groqApiKey: apiKeys.groqApiKey,
-          githubToken: apiKeys.githubToken,
-          scanMode,
-          enableHookScan
-        })
-      });
+      try {
+        // Preferred: Async background job with real-time polling
+        const launch = await safeFetchJson('/api/jobs/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filePath,
+            vttPath,
+            geminiApiKey: apiKeys.geminiApiKey,
+            groqApiKey: apiKeys.groqApiKey,
+            githubToken: apiKeys.githubToken,
+            scanMode,
+            enableHookScan
+          })
+        });
 
-      clearTimeout(stepTimer1);
+        if (launch && launch.jobId) {
+          procResult = await pollJob(launch.jobId, (job) => {
+            if (job.step) setProcessingStep(job.step);
+            if (job.progressText) setProcessingText(job.progressText);
+          });
+        }
+      } catch (asyncErr) {
+        // Fallback to synchronous endpoint if jobs endpoint unavailable
+        console.warn('Async job failed, trying synchronous endpoint:', asyncErr.message);
+        procResult = await safeFetchJson('/api/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filePath,
+            vttPath,
+            geminiApiKey: apiKeys.geminiApiKey,
+            groqApiKey: apiKeys.groqApiKey,
+            githubToken: apiKeys.githubToken,
+            scanMode,
+            enableHookScan
+          })
+        });
+      }
 
-      setProcessingStep(3);
-      setProcessingText('Scoring narrative virality, curiosity gaps & hook potential...');
-
-      await new Promise(r => setTimeout(r, 400));
-      setProcessingStep(4);
-      setProcessingText('Configuring 9:16 vertical auto-crop & frosted blur parameters...');
-
-      await new Promise(r => setTimeout(r, 400));
       setProcessingStep(5);
       setProcessingText('Finalizing kinetic subtitle presets & studio clips...');
 
@@ -208,9 +252,9 @@ export default function App() {
         setActiveVideo({
           filePath,
           videoUrl: videoUrl || `/api/stream?path=${encodeURIComponent(filePath)}`,
-          meta: data.meta
+          meta: procResult.meta
         });
-        setClips(data.clips || []);
+        setClips(procResult.clips || []);
         setView('clips');
       }, 500);
 
@@ -382,22 +426,41 @@ export default function App() {
     xhr.send(formData);
   };
 
-  // 3. Download URL handler
+  // 3. Download URL handler (Zero-timeout async architecture)
   const handleDownloadUrl = async (url) => {
     setView('processing');
     setProcessingStep(1);
-    setProcessingText('Downloading video stream via yt-dlp...');
+    setProcessingText('Connecting to stream & extracting highlight segment...');
 
     const storedCookies = apiKeys.ytCookies || localStorage.getItem('openclip_yt_cookies') || '';
 
     try {
-      const data = await safeFetchJson('/api/download-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, cookies: storedCookies })
-      });
+      let dlResult = null;
 
-      await runProcessingPipeline(data.filePath, null, data.videoUrl);
+      try {
+        // Preferred: Async background job with real-time polling
+        const launch = await safeFetchJson('/api/jobs/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, cookies: storedCookies, maxMinutes: 10 })
+        });
+
+        if (launch && launch.jobId) {
+          dlResult = await pollJob(launch.jobId, (job) => {
+            setProcessingText(job.progressText || 'Downloading stream highlights...');
+          });
+        }
+      } catch (asyncErr) {
+        // Fallback to synchronous endpoint
+        console.warn('Async download job failed, using synchronous fallback:', asyncErr.message);
+        dlResult = await safeFetchJson('/api/download-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, cookies: storedCookies, maxMinutes: 10 })
+        });
+      }
+
+      await runProcessingPipeline(dlResult.filePath, null, dlResult.videoUrl);
     } catch (err) {
       const isBotBlock = err.message.includes('not a bot') || err.message.includes('429');
       if (isBotBlock) {

@@ -192,7 +192,7 @@ app.get('/api/status', (req, res) => {
 
   res.json({
     status: 'ok',
-    version: '1.0.2',
+    version: '1.0.3',
     platform: 'OpenClip Studio',
     pricing: '100% Free & Open-Source',
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
@@ -284,15 +284,157 @@ app.post('/api/upload', (req, res) => {
   });
 });
 
+// In-Memory Async Job Store for Cloud Resilience
+const jobs = new Map();
+
+function createJob(type, payload = {}) {
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const job = {
+    id: jobId,
+    type,
+    status: 'pending', // 'downloading' | 'processing' | 'completed' | 'failed'
+    step: 1,
+    progress: 0,
+    progressText: 'Initializing...',
+    result: null,
+    error: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  jobs.set(jobId, job);
+  // Auto-cleanup after 1 hour
+  setTimeout(() => jobs.delete(jobId), 3600 * 1000);
+  return job;
+}
+
 /**
- * Download URL (YouTube, Vimeo, etc.)
+ * Async Download URL Job (Zero-timeout polling architecture)
+ */
+app.post('/api/jobs/download', async (req, res) => {
+  const { url, cookies, maxMinutes = 10, full = false } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required' });
+
+  const job = createJob('download', { url });
+  res.json({ success: true, jobId: job.id });
+
+  (async () => {
+    try {
+      job.status = 'downloading';
+      job.progressText = 'Connecting to stream & extracting highlight segment...';
+      const result = await downloadUrl(
+        url,
+        UPLOAD_DIR,
+        (pct) => {
+          job.progress = pct;
+          job.progressText = `Downloading stream: ${pct}%`;
+          job.updatedAt = Date.now();
+        },
+        cookies,
+        { maxMinutes, full }
+      );
+
+      job.progressText = 'Inspecting video metadata...';
+      let filePath = result.filePath;
+      filePath = await normalizeWebVideo(filePath);
+      const meta = await probeVideo(filePath);
+
+      job.status = 'completed';
+      job.progress = 100;
+      job.progressText = 'Download complete!';
+      job.result = {
+        videoId: result.fileId,
+        filePath,
+        videoUrl: `/api/stream?path=${encodeURIComponent(filePath)}`,
+        meta
+      };
+      job.updatedAt = Date.now();
+    } catch (err) {
+      console.error('Job download error:', err);
+      job.status = 'failed';
+      job.error = err.message;
+      job.updatedAt = Date.now();
+    }
+  })();
+});
+
+/**
+ * Async Video Repurposing Pipeline Job
+ */
+app.post('/api/jobs/process', async (req, res) => {
+  const { filePath, vttPath, geminiApiKey, groqApiKey, githubToken, scanMode = 'lightning', enableHookScan = true } = req.body;
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(400).json({ error: 'Valid filePath is required' });
+  }
+
+  const job = createJob('process', { filePath });
+  res.json({ success: true, jobId: job.id });
+
+  (async () => {
+    try {
+      job.status = 'processing';
+      job.step = 1;
+      job.progressText = 'Extracting 16kHz audio stream via FFmpeg...';
+
+      const meta = await probeVideo(filePath);
+      const maxExtractSec = (scanMode === 'lightning' && meta.duration > 600) ? 600 : null;
+      const audioPath = path.join(UPLOAD_DIR, `${path.basename(filePath, path.extname(filePath))}_audio.wav`);
+      await extractAudio(filePath, audioPath, maxExtractSec);
+
+      job.step = 2;
+      job.progressText = 'Transcribing speech & aligning word timestamps...';
+      const transcript = await transcribeAudio(audioPath, {
+        groqApiKey,
+        existingVttPath: vttPath,
+        estimatedDuration: meta.duration,
+        scanMode
+      });
+
+      job.step = 3;
+      job.progressText = 'Scoring virality, curiosity gaps & hook potential...';
+      const clips = await discoverViralClips(
+        transcript.words,
+        transcript.text,
+        meta.duration,
+        { geminiApiKey, groqApiKey, githubToken: githubToken || process.env.GITHUB_TOKEN },
+        { enableHookScan, audioPath, filePath }
+      );
+
+      job.step = 5;
+      job.progressText = 'Finalizing kinetic studio clips...';
+      job.status = 'completed';
+      job.result = {
+        meta,
+        transcript,
+        clips
+      };
+      job.updatedAt = Date.now();
+    } catch (err) {
+      console.error('Job process error:', err);
+      job.status = 'failed';
+      job.error = err.message;
+      job.updatedAt = Date.now();
+    }
+  })();
+});
+
+/**
+ * Poll Job Status (Instant <10ms response, immune to proxy timeouts)
+ */
+app.get('/api/jobs/:id', (req, res) => {
+  const job = jobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  res.json({ success: true, job });
+});
+
+/**
+ * Synchronous Download URL (Legacy & direct client fallback)
  */
 app.post('/api/download-url', async (req, res) => {
-  const { url, cookies } = req.body;
+  const { url, cookies, maxMinutes = 10, full = false } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   try {
-    const result = await downloadUrl(url, UPLOAD_DIR, null, cookies);
+    const result = await downloadUrl(url, UPLOAD_DIR, null, cookies, { maxMinutes, full });
     let filePath = result.filePath;
     filePath = await normalizeWebVideo(filePath);
     const meta = await probeVideo(filePath);
