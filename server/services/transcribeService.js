@@ -42,6 +42,12 @@ function runLocalWhisper(audioPath, options = {}) {
 
     const proc = spawn(pythonBin, args);
 
+    // Watchdog timer: abort CPU transcription if it hangs past 60s
+    const watchdog = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch (e) {}
+      reject(new Error('Local CPU transcription timed out on cloud server. Please provide a free Groq API key in AI Settings for instant 3s transcription.'));
+    }, 60000);
+
     let stdout = '';
     let stderr = '';
 
@@ -49,6 +55,7 @@ function runLocalWhisper(audioPath, options = {}) {
     proc.stderr.on('data', data => stderr += data.toString());
 
     proc.on('close', (code, signal) => {
+      clearTimeout(watchdog);
       // Clean up temporary trimmed audio
       if (tempTrimmedAudio && fs.existsSync(tempTrimmedAudio)) {
         try { fs.unlinkSync(tempTrimmedAudio); } catch (e) {}
@@ -170,7 +177,11 @@ async function transcribeWithGroq(audioPath, apiKey) {
               words: enriched
             });
           } else {
-            reject(new Error(parsed.error?.message || 'Invalid Groq response'));
+            const isAuthErr = res.statusCode === 401 || res.statusCode === 403;
+            const errMsg = isAuthErr
+              ? 'Groq API key is expired or invalid (HTTP 403). Please paste a valid free key from console.groq.com/keys into AI Settings.'
+              : (parsed.error?.message || `Groq error (HTTP ${res.statusCode})`);
+            reject(new Error(errMsg));
           }
         } catch (e) {
           reject(e);
@@ -214,7 +225,10 @@ async function transcribeAudio(audioPath, options = {}) {
       console.log('⚡ Transcribing via Groq Whisper Large-v3 (Turbo Cloud Mode)...');
       return await transcribeWithGroq(audioPath, apiKey);
     } catch (err) {
-      console.warn('Groq API failed, falling back to local Faster-Whisper:', err.message);
+      console.warn('Groq API failed:', err.message);
+      if (err.message.includes('403') || err.message.includes('expired') || err.message.includes('invalid') || err.message.includes('401')) {
+        throw err;
+      }
     }
   }
 
