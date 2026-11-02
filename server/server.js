@@ -183,9 +183,16 @@ app.get('/api/status', (req, res) => {
     pythonCv2Status = `error: ${e.message}`;
   }
 
+  let ytdlpSize = 0;
+  try {
+    if (fs.existsSync(ytdlpResolved)) {
+      ytdlpSize = fs.statSync(ytdlpResolved).size;
+    }
+  } catch (e) {}
+
   res.json({
     status: 'ok',
-    version: '1.0.1',
+    version: '1.0.2',
     platform: 'OpenClip Studio',
     pricing: '100% Free & Open-Source',
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
@@ -195,6 +202,7 @@ app.get('/api/status', (req, res) => {
     ffmpegReady: true,
     ytdlpReady: Boolean(ytdlpResolved),
     ytdlpPath: ytdlpResolved,
+    ytdlpSize,
     pythonCv2Status
   });
 });

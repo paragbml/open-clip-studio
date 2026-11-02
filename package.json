@@ -8,7 +8,7 @@
     "client": "npm --prefix client run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "npm --prefix client install && npm --prefix client run build",
-    "postinstall": "npm --prefix client install && npm --prefix client run build && (pip3 install --no-cache-dir -r server/requirements.txt || pip install --no-cache-dir -r server/requirements.txt || true)"
+    "postinstall": "chmod +x server/bin/yt-dlp 2>/dev/null || true && npm --prefix client install && npm --prefix client run build && (pip3 install --no-cache-dir -r server/requirements.txt || pip install --no-cache-dir -r server/requirements.txt || true)"
   },
   "dependencies": {
     "@ffprobe-installer/ffprobe": "^2.1.2",

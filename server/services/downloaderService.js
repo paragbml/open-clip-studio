@@ -28,10 +28,27 @@ try {
   ffmpegStaticPath = require('ffmpeg-static');
 } catch (e) {}
 
+function normalizeVideoUrl(inputUrl) {
+  if (!inputUrl || typeof inputUrl !== 'string') return inputUrl;
+  let target = inputUrl.trim();
+
+  // Normalize Kick URLs:
+  // Both VODs (with UUID) and general Kick links
+  if (/kick\.com/i.test(target)) {
+    const uuidMatch = target.match(/([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})/i);
+    if (uuidMatch && !target.includes(`/videos/${uuidMatch[1]}`)) {
+      target = `https://kick.com/_/videos/${uuidMatch[1]}`;
+    }
+  }
+
+  return target;
+}
+
 /**
- * Downloads a video from URL (YouTube, Vimeo, etc.)
+ * Downloads a video from URL (YouTube, Twitch, Kick, Vimeo, etc.)
  */
-function downloadUrl(url, outputDir, onProgress = null, customCookies = null) {
+function downloadUrl(rawUrl, outputDir, onProgress = null, customCookies = null) {
+  const url = normalizeVideoUrl(rawUrl);
   return new Promise((resolve, reject) => {
     const fileId = `dl_${Date.now()}`;
     const outputTemplate = path.join(outputDir, `${fileId}.%(ext)s`);
