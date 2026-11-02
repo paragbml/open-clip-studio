@@ -3,6 +3,7 @@ const path = require('path');
 const { spawn, execSync } = require('child_process');
 const https = require('https');
 const { parseVttToWords, enrichWordWithEmoji } = require('./subtitleService');
+const { FFMPEG_BIN } = require('./ffmpegService');
 
 const TRANSCRIBE_SCRIPT = path.join(__dirname, 'transcribe_local.py');
 
@@ -21,7 +22,7 @@ function runLocalWhisper(audioPath, options = {}) {
       if (scanMode === 'lightning' && maxDuration) {
         tempTrimmedAudio = path.join(path.dirname(audioPath), `trimmed_${Date.now()}.wav`);
         // Fast trim with FFmpeg in 0.05 seconds
-        execSync(`ffmpeg -y -i "${audioPath}" -ss 0 -t ${maxDuration} -c copy "${tempTrimmedAudio}" 2>/dev/null || ffmpeg -y -i "${audioPath}" -ss 0 -t ${maxDuration} "${tempTrimmedAudio}" 2>/dev/null`);
+        execSync(`"${FFMPEG_BIN}" -y -i "${audioPath}" -ss 0 -t ${maxDuration} -c copy "${tempTrimmedAudio}" 2>/dev/null || "${FFMPEG_BIN}" -y -i "${audioPath}" -ss 0 -t ${maxDuration} "${tempTrimmedAudio}" 2>/dev/null`);
         if (fs.existsSync(tempTrimmedAudio) && fs.statSync(tempTrimmedAudio).size > 1000) {
           effectiveAudioPath = tempTrimmedAudio;
           console.log(`⚡ Lightning Mode active: Pre-trimmed audio to first ${Math.round(maxDuration / 60)} minutes for fast transcription.`);
@@ -107,7 +108,7 @@ async function transcribeWithGroq(audioPath, apiKey) {
     if (fs.statSync(audioPath).size > 24 * 1024 * 1024) {
       tempMp3 = path.join(path.dirname(audioPath), `groq_send_${Date.now()}.mp3`);
       try {
-        execSync(`ffmpeg -y -i "${audioPath}" -ar 16000 -ac 1 -b:a 32k "${tempMp3}" 2>/dev/null`);
+        execSync(`"${FFMPEG_BIN}" -y -i "${audioPath}" -ar 16000 -ac 1 -b:a 32k "${tempMp3}" 2>/dev/null`);
         if (fs.existsSync(tempMp3)) sendPath = tempMp3;
       } catch (e) {
         console.warn('Groq mp3 compression failed, using original wav');

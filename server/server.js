@@ -321,12 +321,14 @@ app.post('/api/process', async (req, res) => {
   }
 
   try {
-    // 1+2. Probe video metadata AND extract audio in parallel for speed
+    // 1. Probe video metadata first (instant: ~0.05s)
+    const meta = await probeVideo(filePath);
+
+    // 2. Extract 16kHz audio:
+    // For long videos (>10 mins) in lightning mode, extract target chunk (600s) in 1.5 seconds instead of 5 minutes!
+    const maxExtractSec = (scanMode === 'lightning' && meta.duration > 600) ? 600 : null;
     const audioPath = path.join(UPLOAD_DIR, `${path.basename(filePath, path.extname(filePath))}_audio.wav`);
-    const [meta] = await Promise.all([
-      probeVideo(filePath),
-      extractAudio(filePath, audioPath)
-    ]);
+    await extractAudio(filePath, audioPath, maxExtractSec);
 
     // 3. Transcription (Lightning mode pre-trims long files for fast 30s processing on CPU)
     const transcript = await transcribeAudio(audioPath, {

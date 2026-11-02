@@ -163,20 +163,28 @@ function generateClipPreview(inputPath, startTime, duration, outputPreviewPath) 
 
 /**
  * Extracts 16kHz mono audio for transcription
+ * Supports maxDuration to instantly extract target chunk (e.g. 10m) from long 2hr+ streams
  */
-function extractAudio(videoPath, audioOutputPath) {
+function extractAudio(videoPath, audioOutputPath, maxDuration = null) {
   return new Promise((resolve, reject) => {
     const args = [
       '-y',
       '-threads', '4',
-      '-loglevel', 'warning',
+      '-loglevel', 'warning'
+    ];
+
+    if (maxDuration && Number(maxDuration) > 0) {
+      args.push('-ss', '0', '-t', String(maxDuration));
+    }
+
+    args.push(
       '-i', videoPath,
       '-vn',
       '-ar', '16000',
       '-ac', '1',
       '-c:a', 'pcm_s16le',
       audioOutputPath
-    ];
+    );
 
     const proc = spawn(FFMPEG_BIN, args);
     let stderr = '';
@@ -590,5 +598,7 @@ module.exports = {
   trackSubject,
   extractAudio,
   generateThumbnail,
-  renderShortClip
+  renderShortClip,
+  FFMPEG_BIN,
+  FFPROBE_BIN
 };
