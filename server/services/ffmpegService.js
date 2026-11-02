@@ -64,20 +64,19 @@ function probeVideo(videoPath) {
  * Fast stream-copy takes ~0.2s; transcode fallback if codec is incompatible
  */
 function normalizeWebVideo(inputPath) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     probeVideo(inputPath).then(meta => {
-      // If already a clean standard MP4 with H264, no need to touch
-      if (meta.format_name === 'mov,mp4,m4a,3gp,3g2,mj2' && meta.videoCodec === 'h264' && meta.audioCodec === 'aac') {
+      // If already a standard web video format (MP4, WebM, Matroska), return immediately
+      if (meta.format_name && (meta.format_name.includes('mp4') || meta.format_name.includes('webm') || meta.format_name.includes('matroska'))) {
         return resolve(inputPath);
       }
 
-      console.log(`Normalizing video format (${meta.format_name} / ${meta.videoCodec}) to web-standard MP4...`);
       const dir = path.dirname(inputPath);
       const ext = path.extname(inputPath);
       const base = path.basename(inputPath, ext);
       const tempOutput = path.join(dir, `${base}_normalized.mp4`);
 
-      // 1. Try fast stream copy first (runs at 1000x speed)
+      // Fast stream copy (takes ~0.1s)
       const copyCmd = `${FFMPEG_BIN} -y -i "${inputPath}" -c copy -movflags +faststart "${tempOutput}"`;
       exec(copyCmd, (copyErr) => {
         if (!copyErr && fs.existsSync(tempOutput) && fs.statSync(tempOutput).size > 1000) {
@@ -88,20 +87,10 @@ function normalizeWebVideo(inputPath) {
             return resolve(tempOutput);
           }
         }
-
-        // 2. Fallback to ultrafast transcode if container/codecs require it
-        const transcodeCmd = `${FFMPEG_BIN} -y -i "${inputPath}" -c:v libx264 -preset ultrafast -crf 23 -c:a aac -movflags +faststart "${tempOutput}"`;
-        exec(transcodeCmd, (tcErr) => {
-          if (tcErr) return reject(new Error(`Failed to normalize video: ${tcErr.message}`));
-          try {
-            fs.renameSync(tempOutput, inputPath);
-            resolve(inputPath);
-          } catch (e) {
-            resolve(tempOutput);
-          }
-        });
+        // If copy fails, resolve input directly — never burn CPU on a full transcode
+        resolve(inputPath);
       });
-    }).catch(err => reject(err));
+    }).catch(() => resolve(inputPath));
   });
 }
 
